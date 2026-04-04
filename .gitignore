@@ -1,0 +1,14 @@
+# Ignorar pastas de dados do banco
+icompras-servicos/database/data/
+
+# Ignorar pastas de compilação do Maven
+**/target/
+
+# Ignorar arquivos do IntelliJ
+.idea/
+*.iml
+
+# Ignorar binários do Maven
+**/mvnw
+**/mvnw.cmd
+.mvn/
