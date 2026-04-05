@@ -3,7 +3,9 @@ package com.monalisamenezes.icompras.pedidos.controller;
 
 import com.monalisamenezes.icompras.pedidos.controller.dto.NovoPedidoDTO;
 import com.monalisamenezes.icompras.pedidos.controller.dto.mappers.PedidoMapper;
+import com.monalisamenezes.icompras.pedidos.model.ErroResposta;
 import com.monalisamenezes.icompras.pedidos.model.Pedido;
+import com.monalisamenezes.icompras.pedidos.model.exception.ValidationException;
 import com.monalisamenezes.icompras.pedidos.service.PedidoService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -21,8 +23,13 @@ public class PedidoController {
 
     @PostMapping
     public ResponseEntity<Object> criar(@RequestBody NovoPedidoDTO novoPedidoDTO) {
-        Pedido pedido = mapper.map(novoPedidoDTO);
-        Pedido novoPedido = service.criarPedido(pedido);
-        return ResponseEntity.ok(novoPedido.getCodigo());
+        try {
+            Pedido pedido = mapper.map(novoPedidoDTO);
+            Pedido novoPedido = service.criarPedido(pedido);
+            return ResponseEntity.ok(novoPedido.getCodigo());
+        } catch (ValidationException e) {
+            ErroResposta Error = new ErroResposta("Erro validação.", e.getField(), e.getMessage());
+            return ResponseEntity.badRequest().body(Error);
+        }
     }
 }
