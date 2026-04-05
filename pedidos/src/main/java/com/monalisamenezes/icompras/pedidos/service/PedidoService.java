@@ -6,13 +6,18 @@ import com.monalisamenezes.icompras.pedidos.model.Pedido;
 import com.monalisamenezes.icompras.pedidos.repository.ItemPedidoRepository;
 import com.monalisamenezes.icompras.pedidos.repository.PedidoRepository;
 import com.monalisamenezes.icompras.pedidos.validator.PedidoValidator;
+import enums.StatusPedido;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.RequestBody;
 
+import java.util.Optional;
+
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class PedidoService {
     private final PedidoRepository repository;
     private final ItemPedidoRepository itemPedidoRepository;
@@ -36,4 +41,29 @@ public class PedidoService {
         repository.save(pedido);
         itemPedidoRepository.saveAll(pedido.getItens());
     }
+
+    public void atualizarStatusPagamento(
+            Long codigoPedido, String chavePagamento, boolean sucesso, String observacoes) {
+        Optional<Pedido> pedidoEncontrado = repository.findByCodigoAndChavePagamento(codigoPedido, chavePagamento);
+
+        if (pedidoEncontrado.isEmpty()) {
+            String msg = String.format("Pedido não encontrado para o codigo %d e chave de pagamento %s",
+                    codigoPedido, chavePagamento);
+            log.error(msg);
+            return;
+        } else {
+            Pedido pedido = pedidoEncontrado.get();
+
+            if (sucesso) {
+                pedido.setStatus(StatusPedido.PAGO);
+                pedido.setObservacoes(observacoes);
+            } else {
+                pedido.setStatus(StatusPedido.ERRO_PAGAMENTO);
+                pedido.setObservacoes(observacoes);
+            }
+
+            repository.save(pedido);
+        }
+    }
 }
+
