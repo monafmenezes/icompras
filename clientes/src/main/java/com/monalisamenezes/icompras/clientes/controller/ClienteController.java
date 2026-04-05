@@ -21,7 +21,7 @@ public class ClienteController {
     }
 
     @GetMapping("/{codigo}")
-    public ResponseEntity<ClienteDTO> findId(@PathVariable Long codigo) {
+    public ResponseEntity<ClienteDTO> findByCodigo(@PathVariable Long codigo) {
         return service.findById(codigo).map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
