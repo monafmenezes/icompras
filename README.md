@@ -85,8 +85,28 @@ Manages orders, line items, and payment processing. Communicates with the Client
 | Method | Endpoint | Description |
 |---|---|---|
 | POST | `/pedidos` | Create a new order |
+| POST | `/pedidos/callback-pagamentos` | Payment status webhook |
 
 **Order statuses:** `REALIZADO`, `PAGO`, `FATURADO`, `ENVIADO`, `ERRO_PAGAMENTO`, `PREPARANDO_ENVIO`
+
+##### Payment Webhook
+
+The endpoint `POST /pedidos/callback-pagamentos` receives payment status callbacks from external banking/payment services. It updates the order status to `PAGO` (on success) or `ERRO_PAGAMENTO` (on failure).
+
+**Headers:**
+
+| Header | Required | Description |
+|---|---|---|
+| `apiKey` | Yes | API key for authentication |
+
+**Request body:**
+
+| Field | Type | Description |
+|---|---|---|
+| `codigo` | Long | Order ID |
+| `chavePagamento` | String | Payment key/reference |
+| `status` | boolean | Payment success status |
+| `observacoes` | String | Notes about the payment |
 
 ### Database
 
@@ -251,8 +271,28 @@ Gerencia pedidos, itens e processamento de pagamento. Comunica-se com os serviç
 | Método | Endpoint | Descrição |
 |---|---|---|
 | POST | `/pedidos` | Criar novo pedido |
+| POST | `/pedidos/callback-pagamentos` | Webhook de status de pagamento |
 
 **Status do pedido:** `REALIZADO`, `PAGO`, `FATURADO`, `ENVIADO`, `ERRO_PAGAMENTO`, `PREPARANDO_ENVIO`
+
+##### Webhook de Pagamento
+
+O endpoint `POST /pedidos/callback-pagamentos` recebe callbacks de status de pagamento de serviços bancários/pagamento externos. Atualiza o status do pedido para `PAGO` (em caso de sucesso) ou `ERRO_PAGAMENTO` (em caso de falha).
+
+**Headers:**
+
+| Header | Obrigatório | Descrição |
+|---|---|---|
+| `apiKey` | Sim | Chave de API para autenticação |
+
+**Corpo da requisição:**
+
+| Campo | Tipo | Descrição |
+|---|---|---|
+| `codigo` | Long | ID do pedido |
+| `chavePagamento` | String | Chave/referência do pagamento |
+| `status` | boolean | Status de sucesso do pagamento |
+| `observacoes` | String | Observações sobre o pagamento |
 
 ### Banco de Dados
 
