@@ -15,7 +15,7 @@ import java.time.LocalDateTime;
 @Mapper(componentModel = "spring", uses = { ItemPedidoMapper.class })
 public interface PedidoMapper {
 
-    @Mapping(source = "dadosPagamentoDTO", target = "dadosPagamento")
+    @Mapping(source = "dadosPagamento", target = "dadosPagamento")
     Pedido map(NovoPedidoDTO dto);
     
     @AfterMapping
