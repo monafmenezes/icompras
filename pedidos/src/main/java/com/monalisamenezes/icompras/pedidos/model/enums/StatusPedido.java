@@ -1,4 +1,4 @@
-package enums;
+package com.monalisamenezes.icompras.pedidos.model.enums;
 
 public enum StatusPedido {
     REALIZADO("realizado"),
