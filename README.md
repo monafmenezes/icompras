@@ -8,7 +8,7 @@
 
 ### About
 
-**iCompras** is a microservices-based e-commerce platform built with Java 21 and Spring Boot. The system manages customers, products, and orders through independent services that communicate via REST APIs using Spring Cloud OpenFeign.
+**iCompras** is a microservices-based e-commerce platform built with Java 21 and Spring Boot. The system manages customers, products, and orders through independent services that communicate via REST APIs using Spring Cloud OpenFeign and publish events through Apache Kafka.
 
 ### Tech Stack
 
@@ -18,38 +18,40 @@
 | Framework | Spring Boot (3.3.4 – 4.0.5) |
 | Database | PostgreSQL 17.4 |
 | ORM | Spring Data JPA / Hibernate |
-| Communication | Spring Cloud OpenFeign |
+| Sync Communication | Spring Cloud OpenFeign |
+| Async Communication | Apache Kafka 7.2.15 |
 | Build Tool | Maven |
 | Utilities | Lombok, MapStruct |
 | Validation | Jakarta Validation |
 | Containers | Docker / Docker Compose |
+| Monitoring | Kafka UI |
 
 ### Architecture
 
 ```
-┌─────────────────────────────────────────────────────┐
-│                    iCompras Platform                 │
-│                                                     │
-│  ┌──────────┐   ┌──────────┐   ┌──────────────┐    │
-│  │ Clientes │   │ Produtos │   │   Pedidos    │    │
-│  │  :8082   │   │  :8081   │   │    :8080     │    │
-│  └────┬─────┘   └────┬─────┘   └──┬───┬───┬───┘    │
-│       │              │             │   │   │        │
-│       │              │        ┌────┘   │   └────┐   │
-│       │              │        │        │        │   │
-│       ▼              ▼        ▼        ▼        ▼   │
-│  ┌─────────┐   ┌─────────┐  Clientes Produtos  │   │
-│  │icompras │   │icompras │  Service  Service    │   │
-│  │clientes │   │produtos │  (Feign)  (Feign)    │   │
-│  │  (DB)   │   │  (DB)   │                      │   │
-│  └─────────┘   └─────────┘  ┌─────────┐        │   │
-│                              │icompras │        │   │
-│                              │pedidos  │        │   │
-│                              │  (DB)   │        │   │
-│                              └─────────┘        │   │
-│                                                     │
-│          PostgreSQL 17.4 — Port 5555                │
-└─────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────┐
+│                        iCompras Platform                         │
+│                                                                  │
+│  ┌──────────┐   ┌──────────┐   ┌──────────────┐                 │
+│  │ Clientes │   │ Produtos │   │   Pedidos    │                 │
+│  │  :8082   │   │  :8081   │   │    :8080     │                 │
+│  └────┬─────┘   └────┬─────┘   └──┬───┬───┬───┘                 │
+│       │              │             │   │   │                     │
+│       │              │        ┌────┘   │   └────┐                │
+│       │              │        │        │        │                │
+│       ▼              ▼        ▼        ▼        ▼                │
+│  ┌─────────┐   ┌─────────┐  Clientes Produtos  │                │
+│  │icompras │   │icompras │  Service  Service    │                │
+│  │clientes │   │produtos │  (Feign)  (Feign)    │                │
+│  │  (DB)   │   │  (DB)   │                      │                │
+│  └─────────┘   └─────────┘  ┌─────────┐   ┌──────────┐         │
+│                              │icompras │   │  Kafka   │         │
+│                              │pedidos  │──▶│  Broker  │         │
+│                              │  (DB)   │   │  :29092  │         │
+│                              └─────────┘   └──────────┘         │
+│                                                  │               │
+│          PostgreSQL 17.4 — Port 5555        Kafka UI :8090       │
+└──────────────────────────────────────────────────────────────────┘
 ```
 
 ### Microservices
@@ -80,18 +82,26 @@ Manages the product catalog.
 
 #### Pedidos (Orders) — Port 8080
 
-Manages orders, line items, and payment processing. Communicates with the Clientes and Produtos services via Feign clients to validate data before creating orders.
+Manages orders, line items, and payment processing. Communicates with the Clientes and Produtos services via Feign clients to validate data before creating orders. Publishes payment events to Kafka upon successful payment.
 
 | Method | Endpoint | Description |
 |---|---|---|
 | POST | `/pedidos` | Create a new order |
+| GET | `/pedidos/{codigo}` | Get order details |
+| POST | `/pedidos/pagamentos` | Retry payment for an existing order |
 | POST | `/pedidos/callback-pagamentos` | Payment status webhook |
+
+**Order entity fields:** `codigo`, `codigoCliente`, `dataPedido`, `chavePagamento`, `observacoes`, `status`, `total`, `codigoRastreio`, `urlNf`, `itens`
+
+**Order item fields:** `codigo`, `codigoProduto`, `quantidade`, `valorUnitario`
 
 **Order statuses:** `REALIZADO`, `PAGO`, `FATURADO`, `ENVIADO`, `ERRO_PAGAMENTO`, `PREPARANDO_ENVIO`
 
+**Payment types:** `CREDIT`, `DEBIT`, `PIX`
+
 ##### Payment Webhook
 
-The endpoint `POST /pedidos/callback-pagamentos` receives payment status callbacks from external banking/payment services. It updates the order status to `PAGO` (on success) or `ERRO_PAGAMENTO` (on failure).
+The endpoint `POST /pedidos/callback-pagamentos` receives payment status callbacks from external banking/payment services. It updates the order status to `PAGO` (on success) or `ERRO_PAGAMENTO` (on failure). When payment succeeds, the order details are published to the Kafka topic `icompras.pedidos-pagos`.
 
 **Headers:**
 
@@ -107,6 +117,30 @@ The endpoint `POST /pedidos/callback-pagamentos` receives payment status callbac
 | `chavePagamento` | String | Payment key/reference |
 | `status` | boolean | Payment success status |
 | `observacoes` | String | Notes about the payment |
+
+##### Retry Payment
+
+The endpoint `POST /pedidos/pagamentos` allows adding a new payment attempt for an existing order.
+
+**Request body:**
+
+| Field | Type | Description |
+|---|---|---|
+| `codigoPedido` | Long | Order ID |
+| `dadosCartao` | String | Card data |
+| `tipoPagamento` | String | Payment type (`CREDIT`, `DEBIT`, `PIX`) |
+
+### Kafka Events
+
+The Pedidos service publishes events to Apache Kafka for asynchronous processing.
+
+| Topic | Description |
+|---|---|
+| `icompras.pedidos-pagos` | Published when an order payment is confirmed |
+| `icompras.pedidos-faturados` | Reserved for invoice notifications |
+| `icompras.pedidos-enviados` | Reserved for shipment notifications |
+
+Kafka UI is available at `http://localhost:8090` for monitoring topics and messages.
 
 ### Database
 
@@ -127,14 +161,17 @@ Each microservice has its own database, following the **database-per-service** p
 
 ### Getting Started
 
-**1. Start the database**
+**1. Start the infrastructure**
 
 ```bash
+# Start the database (PostgreSQL on port 5555)
 cd icompras-servicos/database
 docker compose up -d
-```
 
-This starts a PostgreSQL 17.4 container on port **5555** and automatically creates all required databases and tables.
+# Start the message broker (Kafka on port 29092, Kafka UI on port 8090)
+cd ../broker
+docker compose up -d
+```
 
 **2. Run each microservice**
 
@@ -171,21 +208,26 @@ curl -X POST http://localhost:8081/produtos \
 curl -X POST http://localhost:8080/pedidos \
   -H "Content-Type: application/json" \
   -d '{"codigoCliente":1,"itens":[{"codigoProduto":1,"quantidade":1}]}'
+
+# Get order details
+curl http://localhost:8080/pedidos/1
 ```
 
 ### Project Structure
 
 ```
 icompras/
-├── clientes/              # Customer microservice
-├── produtos/              # Product microservice
-├── pedidos/               # Order microservice
-└── icompras-servicos/     # Infrastructure (Docker, DB scripts)
-    └── database/
-        ├── docker-compose.yml
-        ├── schema.sql
-        └── init-db/
-            └── create_databases.sql
+├── clientes/              # Customer microservice (Spring Boot 4.0.5)
+├── produtos/              # Product microservice (Spring Boot 3.4.4)
+├── pedidos/               # Order microservice (Spring Boot 3.3.4)
+└── icompras-servicos/     # Infrastructure
+    ├── database/
+    │   ├── docker-compose.yml
+    │   ├── schema.sql
+    │   └── init-db/
+    │       └── create_databases.sql
+    └── broker/
+        └── docker-compose.yml
 ```
 
 ---
@@ -194,7 +236,7 @@ icompras/
 
 ### Sobre
 
-**iCompras** é uma plataforma de e-commerce baseada em microsserviços, construída com Java 21 e Spring Boot. O sistema gerencia clientes, produtos e pedidos por meio de serviços independentes que se comunicam via APIs REST utilizando Spring Cloud OpenFeign.
+**iCompras** é uma plataforma de e-commerce baseada em microsserviços, construída com Java 21 e Spring Boot. O sistema gerencia clientes, produtos e pedidos por meio de serviços independentes que se comunicam via APIs REST utilizando Spring Cloud OpenFeign e publicam eventos através do Apache Kafka.
 
 ### Stack Tecnológica
 
@@ -204,38 +246,40 @@ icompras/
 | Framework | Spring Boot (3.3.4 – 4.0.5) |
 | Banco de Dados | PostgreSQL 17.4 |
 | ORM | Spring Data JPA / Hibernate |
-| Comunicação | Spring Cloud OpenFeign |
+| Comunicação Síncrona | Spring Cloud OpenFeign |
+| Comunicação Assíncrona | Apache Kafka 7.2.15 |
 | Build | Maven |
 | Utilitários | Lombok, MapStruct |
 | Validação | Jakarta Validation |
 | Containers | Docker / Docker Compose |
+| Monitoramento | Kafka UI |
 
 ### Arquitetura
 
 ```
-┌─────────────────────────────────────────────────────┐
-│                  Plataforma iCompras                 │
-│                                                     │
-│  ┌──────────┐   ┌──────────┐   ┌──────────────┐    │
-│  │ Clientes │   │ Produtos │   │   Pedidos    │    │
-│  │  :8082   │   │  :8081   │   │    :8080     │    │
-│  └────┬─────┘   └────┬─────┘   └──┬───┬───┬───┘    │
-│       │              │             │   │   │        │
-│       │              │        ┌────┘   │   └────┐   │
-│       │              │        │        │        │   │
-│       ▼              ▼        ▼        ▼        ▼   │
-│  ┌─────────┐   ┌─────────┐  Clientes Produtos  │   │
-│  │icompras │   │icompras │  Service  Service    │   │
-│  │clientes │   │produtos │  (Feign)  (Feign)    │   │
-│  │  (BD)   │   │  (BD)   │                      │   │
-│  └─────────┘   └─────────┘  ┌─────────┐        │   │
-│                              │icompras │        │   │
-│                              │pedidos  │        │   │
-│                              │  (BD)   │        │   │
-│                              └─────────┘        │   │
-│                                                     │
-│          PostgreSQL 17.4 — Porta 5555               │
-└─────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────┐
+│                      Plataforma iCompras                         │
+│                                                                  │
+│  ┌──────────┐   ┌──────────┐   ┌──────────────┐                 │
+│  │ Clientes │   │ Produtos │   │   Pedidos    │                 │
+│  │  :8082   │   │  :8081   │   │    :8080     │                 │
+│  └────┬─────┘   └────┬─────┘   └──┬───┬───┬───┘                 │
+│       │              │             │   │   │                     │
+│       │              │        ┌────┘   │   └────┐                │
+│       │              │        │        │        │                │
+│       ▼              ▼        ▼        ▼        ▼                │
+│  ┌─────────┐   ┌─────────┐  Clientes Produtos  │                │
+│  │icompras │   │icompras │  Service  Service    │                │
+│  │clientes │   │produtos │  (Feign)  (Feign)    │                │
+│  │  (BD)   │   │  (BD)   │                      │                │
+│  └─────────┘   └─────────┘  ┌─────────┐   ┌──────────┐         │
+│                              │icompras │   │  Kafka   │         │
+│                              │pedidos  │──▶│  Broker  │         │
+│                              │  (BD)   │   │  :29092  │         │
+│                              └─────────┘   └──────────┘         │
+│                                                  │               │
+│          PostgreSQL 17.4 — Porta 5555       Kafka UI :8090       │
+└──────────────────────────────────────────────────────────────────┘
 ```
 
 ### Microsserviços
@@ -266,18 +310,26 @@ Gerencia o catálogo de produtos.
 
 #### Pedidos — Porta 8080
 
-Gerencia pedidos, itens e processamento de pagamento. Comunica-se com os serviços de Clientes e Produtos via Feign clients para validar dados antes de criar pedidos.
+Gerencia pedidos, itens e processamento de pagamento. Comunica-se com os serviços de Clientes e Produtos via Feign clients para validar dados antes de criar pedidos. Publica eventos de pagamento no Kafka após confirmação.
 
 | Método | Endpoint | Descrição |
 |---|---|---|
 | POST | `/pedidos` | Criar novo pedido |
+| GET | `/pedidos/{codigo}` | Consultar detalhes do pedido |
+| POST | `/pedidos/pagamentos` | Retentar pagamento de um pedido |
 | POST | `/pedidos/callback-pagamentos` | Webhook de status de pagamento |
+
+**Campos da entidade pedido:** `codigo`, `codigoCliente`, `dataPedido`, `chavePagamento`, `observacoes`, `status`, `total`, `codigoRastreio`, `urlNf`, `itens`
+
+**Campos do item do pedido:** `codigo`, `codigoProduto`, `quantidade`, `valorUnitario`
 
 **Status do pedido:** `REALIZADO`, `PAGO`, `FATURADO`, `ENVIADO`, `ERRO_PAGAMENTO`, `PREPARANDO_ENVIO`
 
+**Tipos de pagamento:** `CREDIT`, `DEBIT`, `PIX`
+
 ##### Webhook de Pagamento
 
-O endpoint `POST /pedidos/callback-pagamentos` recebe callbacks de status de pagamento de serviços bancários/pagamento externos. Atualiza o status do pedido para `PAGO` (em caso de sucesso) ou `ERRO_PAGAMENTO` (em caso de falha).
+O endpoint `POST /pedidos/callback-pagamentos` recebe callbacks de status de pagamento de serviços bancários/pagamento externos. Atualiza o status do pedido para `PAGO` (em caso de sucesso) ou `ERRO_PAGAMENTO` (em caso de falha). Quando o pagamento é confirmado, os detalhes do pedido são publicados no tópico Kafka `icompras.pedidos-pagos`.
 
 **Headers:**
 
@@ -293,6 +345,30 @@ O endpoint `POST /pedidos/callback-pagamentos` recebe callbacks de status de pag
 | `chavePagamento` | String | Chave/referência do pagamento |
 | `status` | boolean | Status de sucesso do pagamento |
 | `observacoes` | String | Observações sobre o pagamento |
+
+##### Retentar Pagamento
+
+O endpoint `POST /pedidos/pagamentos` permite adicionar uma nova tentativa de pagamento para um pedido existente.
+
+**Corpo da requisição:**
+
+| Campo | Tipo | Descrição |
+|---|---|---|
+| `codigoPedido` | Long | ID do pedido |
+| `dadosCartao` | String | Dados do cartão |
+| `tipoPagamento` | String | Tipo de pagamento (`CREDIT`, `DEBIT`, `PIX`) |
+
+### Eventos Kafka
+
+O serviço de Pedidos publica eventos no Apache Kafka para processamento assíncrono.
+
+| Tópico | Descrição |
+|---|---|
+| `icompras.pedidos-pagos` | Publicado quando o pagamento de um pedido é confirmado |
+| `icompras.pedidos-faturados` | Reservado para notificações de faturamento |
+| `icompras.pedidos-enviados` | Reservado para notificações de envio |
+
+O Kafka UI está disponível em `http://localhost:8090` para monitoramento de tópicos e mensagens.
 
 ### Banco de Dados
 
@@ -313,14 +389,17 @@ Cada microsserviço possui seu próprio banco de dados, seguindo o padrão **dat
 
 ### Como Executar
 
-**1. Iniciar o banco de dados**
+**1. Iniciar a infraestrutura**
 
 ```bash
+# Iniciar o banco de dados (PostgreSQL na porta 5555)
 cd icompras-servicos/database
 docker compose up -d
-```
 
-Isso inicia um container PostgreSQL 17.4 na porta **5555** e cria automaticamente todos os bancos de dados e tabelas necessários.
+# Iniciar o message broker (Kafka na porta 29092, Kafka UI na porta 8090)
+cd ../broker
+docker compose up -d
+```
 
 **2. Executar cada microsserviço**
 
@@ -357,21 +436,26 @@ curl -X POST http://localhost:8081/produtos \
 curl -X POST http://localhost:8080/pedidos \
   -H "Content-Type: application/json" \
   -d '{"codigoCliente":1,"itens":[{"codigoProduto":1,"quantidade":1}]}'
+
+# Consultar detalhes do pedido
+curl http://localhost:8080/pedidos/1
 ```
 
 ### Estrutura do Projeto
 
 ```
 icompras/
-├── clientes/              # Microsserviço de clientes
-├── produtos/              # Microsserviço de produtos
-├── pedidos/               # Microsserviço de pedidos
-└── icompras-servicos/     # Infraestrutura (Docker, scripts de BD)
-    └── database/
-        ├── docker-compose.yml
-        ├── schema.sql
-        └── init-db/
-            └── create_databases.sql
+├── clientes/              # Microsserviço de clientes (Spring Boot 4.0.5)
+├── produtos/              # Microsserviço de produtos (Spring Boot 3.4.4)
+├── pedidos/               # Microsserviço de pedidos (Spring Boot 3.3.4)
+└── icompras-servicos/     # Infraestrutura
+    ├── database/
+    │   ├── docker-compose.yml
+    │   ├── schema.sql
+    │   └── init-db/
+    │       └── create_databases.sql
+    └── broker/
+        └── docker-compose.yml
 ```
 
 ---
