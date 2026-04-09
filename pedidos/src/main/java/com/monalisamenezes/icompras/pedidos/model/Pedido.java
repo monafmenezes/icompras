@@ -1,6 +1,7 @@
 package com.monalisamenezes.icompras.pedidos.model;
 
-import enums.StatusPedido;
+import com.monalisamenezes.icompras.pedidos.client.representation.ClienteRepresentation;
+import com.monalisamenezes.icompras.pedidos.model.enums.StatusPedido;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -50,4 +51,18 @@ public class Pedido {
 
     @Transient //não é salvo no banco de dados
     private DadosPagamento dadosPagamento;
+
+    @Transient
+    private ClienteRepresentation dadosCliente;
+
+    public void setItens(List<ItemPedido> novosItens) {
+        if (this.itens == null) {
+            this.itens = novosItens;
+        } else {
+            this.itens.clear();
+            if (novosItens != null) {
+                this.itens.addAll(novosItens);
+            }
+        }
+    }
 }

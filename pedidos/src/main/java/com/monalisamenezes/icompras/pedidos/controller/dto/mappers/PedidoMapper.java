@@ -2,7 +2,7 @@ package com.monalisamenezes.icompras.pedidos.controller.dto.mappers;
 
 import com.monalisamenezes.icompras.pedidos.controller.dto.NovoPedidoDTO;
 import com.monalisamenezes.icompras.pedidos.model.Pedido;
-import enums.StatusPedido;
+import com.monalisamenezes.icompras.pedidos.model.enums.StatusPedido;
 import org.jspecify.annotations.NonNull;
 import org.mapstruct.AfterMapping;
 import org.mapstruct.Mapper;

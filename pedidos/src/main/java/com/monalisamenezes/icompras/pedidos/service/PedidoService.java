@@ -1,21 +1,30 @@
 package com.monalisamenezes.icompras.pedidos.service;
 
+import com.monalisamenezes.icompras.pedidos.client.ClientesClient;
+import com.monalisamenezes.icompras.pedidos.client.ProdutosClient;
 import com.monalisamenezes.icompras.pedidos.client.ServicoBancarioClient;
+import com.monalisamenezes.icompras.pedidos.client.representation.ClienteRepresentation;
+import com.monalisamenezes.icompras.pedidos.client.representation.ProdutoRepresentation;
 import com.monalisamenezes.icompras.pedidos.model.DadosPagamento;
+import com.monalisamenezes.icompras.pedidos.model.ItemPedido;
 import com.monalisamenezes.icompras.pedidos.model.Pedido;
 
+import com.monalisamenezes.icompras.pedidos.model.enums.StatusPedido;
 import com.monalisamenezes.icompras.pedidos.model.enums.TipoPagamento;
 import com.monalisamenezes.icompras.pedidos.model.exception.ItemNaoEncontradoException;
+import com.monalisamenezes.icompras.pedidos.publisher.PagamentoPublisher;
 import com.monalisamenezes.icompras.pedidos.repository.ItemPedidoRepository;
 import com.monalisamenezes.icompras.pedidos.repository.PedidoRepository;
 import com.monalisamenezes.icompras.pedidos.validator.PedidoValidator;
-import enums.StatusPedido;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.RequestBody;
 
+import java.util.List;
 import java.util.Optional;
 
 @Service
@@ -26,6 +35,9 @@ public class PedidoService {
     private final ItemPedidoRepository itemPedidoRepository;
     private final PedidoValidator validator;
     private final ServicoBancarioClient servicoBancarioClient;
+    private final ClientesClient apiClientes;
+    private final ProdutosClient apiProdutos;
+    private final PagamentoPublisher pagamentoPublisher;
 
     @Transactional
     public Pedido criarPedido(@RequestBody Pedido pedido) {
@@ -58,8 +70,7 @@ public class PedidoService {
             Pedido pedido = pedidoEncontrado.get();
 
             if (sucesso) {
-                pedido.setStatus(StatusPedido.PAGO);
-                pedido.setObservacoes(observacoes);
+                prepararEPublicarPedidoPago(observacoes, pedido);
             } else {
                 pedido.setStatus(StatusPedido.ERRO_PAGAMENTO);
                 pedido.setObservacoes(observacoes);
@@ -67,6 +78,14 @@ public class PedidoService {
 
             repository.save(pedido);
         }
+    }
+
+    private void prepararEPublicarPedidoPago(String observacoes, Pedido pedido) {
+        pedido.setStatus(StatusPedido.PAGO);
+        pedido.setObservacoes(observacoes);
+        carregarDadosCliente(pedido);
+        carregarItensPedido(pedido);
+        pagamentoPublisher.publicar(pedido);
     }
 
     @Transactional
@@ -90,6 +109,35 @@ public class PedidoService {
 
         pedido.setChavePagamento(novaChavePagamento);
         repository.save(pedido);
+    }
+
+    public Optional<Pedido> carregarDadosCompletosPedido(Long codigo) {
+        Optional<Pedido> pedidoEncontrado = repository.findById(codigo);
+
+        pedidoEncontrado.ifPresent(this::carregarDadosCliente);
+        pedidoEncontrado.ifPresent(this::carregarItensPedido);
+
+        return pedidoEncontrado;
+    }
+
+    private void carregarDadosCliente(Pedido pedido) {
+        Long codigoCliente = pedido.getCodigoCliente();
+        ResponseEntity<ClienteRepresentation> response = apiClientes.findByCodigo(codigoCliente);
+        pedido.setDadosCliente(response.getBody());
+    }
+
+    private void carregarItensPedido(Pedido pedido) {
+       List<ItemPedido> itemPedidos = itemPedidoRepository.findByPedido(pedido);
+       pedido.setItens(itemPedidos);
+       pedido.getItens().forEach(this::carregarDadosProduto);
+
+    }
+
+    private void carregarDadosProduto(ItemPedido itemPedido) {
+        Long codigoProduto = itemPedido.getCodigoProduto();
+        ResponseEntity<ProdutoRepresentation> response = apiProdutos.obterDados(codigoProduto);
+        assert response.getBody() != null;
+        itemPedido.setNome(response.getBody().nome());
     }
 }
 
