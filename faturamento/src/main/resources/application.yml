@@ -1,0 +1,18 @@
+spring:
+  application:
+    name: faturamento
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
+server:
+  port: 8083
+
+minio:
+  url: 'http://localhost:9000'
+  access-key: ${ACCESS_KEY:admin}
+  secret-key: ${SECRET_KEY:password123}
+  bucket-name: icompras.faturas
+
+
+
