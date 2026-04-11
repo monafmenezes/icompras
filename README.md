@@ -8,7 +8,7 @@
 
 ### About
 
-**iCompras** is a microservices-based e-commerce platform built with Java 21 and Spring Boot. The system manages customers, products, and orders through independent services that communicate via REST APIs using Spring Cloud OpenFeign and publish events through Apache Kafka.
+**iCompras** is a microservices-based e-commerce platform built with Java 21 and Spring Boot. The system manages customers, products, orders, and invoicing through independent services that communicate via REST APIs using Spring Cloud OpenFeign and publish events through Apache Kafka. Invoice PDFs are generated with JasperReports and stored in MinIO.
 
 ### Tech Stack
 
@@ -23,35 +23,40 @@
 | Build Tool | Maven |
 | Utilities | Lombok, MapStruct |
 | Validation | Jakarta Validation |
+| Reporting | JasperReports 7.0.6 |
+| Object Storage | MinIO (S3-compatible) |
 | Containers | Docker / Docker Compose |
 | Monitoring | Kafka UI |
 
 ### Architecture
 
 ```
-┌──────────────────────────────────────────────────────────────────┐
-│                        iCompras Platform                         │
-│                                                                  │
-│  ┌──────────┐   ┌──────────┐   ┌──────────────┐                 │
-│  │ Clientes │   │ Produtos │   │   Pedidos    │                 │
-│  │  :8082   │   │  :8081   │   │    :8080     │                 │
-│  └────┬─────┘   └────┬─────┘   └──┬───┬───┬───┘                 │
-│       │              │             │   │   │                     │
-│       │              │        ┌────┘   │   └────┐                │
-│       │              │        │        │        │                │
-│       ▼              ▼        ▼        ▼        ▼                │
-│  ┌─────────┐   ┌─────────┐  Clientes Produtos  │                │
-│  │icompras │   │icompras │  Service  Service    │                │
-│  │clientes │   │produtos │  (Feign)  (Feign)    │                │
-│  │  (DB)   │   │  (DB)   │                      │                │
-│  └─────────┘   └─────────┘  ┌─────────┐   ┌──────────┐         │
-│                              │icompras │   │  Kafka   │         │
-│                              │pedidos  │──▶│  Broker  │         │
-│                              │  (DB)   │   │  :29092  │         │
-│                              └─────────┘   └──────────┘         │
-│                                                  │               │
-│          PostgreSQL 17.4 — Port 5555        Kafka UI :8090       │
-└──────────────────────────────────────────────────────────────────┘
+┌───────────────────────────────────────────────────────────────────────┐
+│                         iCompras Platform                             │
+│                                                                       │
+│  ┌──────────┐   ┌──────────┐   ┌──────────────┐   ┌──────────────┐   │
+│  │ Clientes │   │ Produtos │   │   Pedidos    │   │ Faturamento  │   │
+│  │  :8082   │   │  :8081   │   │    :8080     │   │    :8083     │   │
+│  └────┬─────┘   └────┬─────┘   └──┬───┬───┬───┘   └──────┬───────┘   │
+│       │              │             │   │   │              │           │
+│       │              │        ┌────┘   │   └────┐         │           │
+│       │              │        │        │        │         │           │
+│       ▼              ▼        ▼        ▼        ▼         │           │
+│  ┌─────────┐   ┌─────────┐  Clientes Produtos  │         │           │
+│  │icompras │   │icompras │  Service  Service    │         │           │
+│  │clientes │   │icompras │  (Feign)  (Feign)    │         │           │
+│  │  (DB)   │   │produtos │                      │         │           │
+│  └─────────┘   │  (DB)   │  ┌─────────┐   ┌──────────┐   │           │
+│                └─────────┘  │icompras │   │  Kafka   │   │           │
+│                             │pedidos  │──▶│  Broker  │──▶│           │
+│                             │  (DB)   │   │  :29092  │   │           │
+│                             └─────────┘   └──────────┘   │           │
+│                                                 │        ▼           │
+│                                            Kafka UI  ┌─────────┐    │
+│                                             :8090    │  MinIO  │    │
+│          PostgreSQL 17.4 — Port 5555                 │  :9000  │    │
+│                                                      └─────────┘    │
+└───────────────────────────────────────────────────────────────────────┘
 ```
 
 ### Microservices
@@ -98,6 +103,22 @@ Manages orders, line items, and payment processing. Communicates with the Client
 **Order statuses:** `REALIZADO`, `PAGO`, `FATURADO`, `ENVIADO`, `ERRO_PAGAMENTO`, `PREPARANDO_ENVIO`
 
 **Payment types:** `CREDIT`, `DEBIT`, `PIX`
+
+#### Faturamento (Invoicing) — Port 8083
+
+Consumes Kafka events from the Pedidos service and generates PDF invoices using JasperReports. Stores invoices in MinIO object storage (S3-compatible).
+
+**Kafka consumer:**
+- Topic: `icompras.pedidos-pagos`
+- Consumer group: `icompras-faturamento`
+
+**Invoice generation flow:**
+1. Listens for payment confirmation events on Kafka
+2. Deserializes order data (customer info, items, totals)
+3. Generates a PDF invoice using a JasperReports template
+4. Uploads the PDF to MinIO bucket `icompras.faturas`
+
+**Dependencies:** Spring Kafka, JasperReports 7.0.6, MinIO Client 8.5.17, Lombok
 
 ##### Payment Webhook
 
@@ -153,6 +174,16 @@ Each microservice has its own database, following the **database-per-service** p
 | `icompraspedidos` | Pedidos | `pedidos`, `item_pedido` |
 | `icomprasauth` | Auth (reserved) | — |
 
+### Object Storage
+
+MinIO provides S3-compatible object storage for invoice PDFs.
+
+| Resource | Port | Description |
+|---|---|---|
+| MinIO API | 9000 | S3-compatible API |
+| MinIO Console | 9001 | Management UI |
+| Bucket | — | `icompras.faturas` |
+
 ### Prerequisites
 
 - Java 21+
@@ -171,6 +202,10 @@ docker compose up -d
 # Start the message broker (Kafka on port 29092, Kafka UI on port 8090)
 cd ../broker
 docker compose up -d
+
+# Start object storage (MinIO on port 9000, Console on port 9001)
+cd ../bucket
+docker compose up -d
 ```
 
 **2. Run each microservice**
@@ -188,6 +223,10 @@ cd clientes
 
 # Pedidos (port 8080)
 cd pedidos
+./mvnw spring-boot:run
+
+# Faturamento (port 8083)
+cd faturamento
 ./mvnw spring-boot:run
 ```
 
@@ -220,13 +259,16 @@ icompras/
 ├── clientes/              # Customer microservice (Spring Boot 4.0.5)
 ├── produtos/              # Product microservice (Spring Boot 3.4.4)
 ├── pedidos/               # Order microservice (Spring Boot 3.3.4)
+├── faturamento/           # Invoicing microservice (Spring Boot 4.0.5)
 └── icompras-servicos/     # Infrastructure
     ├── database/
     │   ├── docker-compose.yml
     │   ├── schema.sql
     │   └── init-db/
     │       └── create_databases.sql
-    └── broker/
+    ├── broker/
+    │   └── docker-compose.yml
+    └── bucket/
         └── docker-compose.yml
 ```
 
@@ -236,7 +278,7 @@ icompras/
 
 ### Sobre
 
-**iCompras** é uma plataforma de e-commerce baseada em microsserviços, construída com Java 21 e Spring Boot. O sistema gerencia clientes, produtos e pedidos por meio de serviços independentes que se comunicam via APIs REST utilizando Spring Cloud OpenFeign e publicam eventos através do Apache Kafka.
+**iCompras** é uma plataforma de e-commerce baseada em microsserviços, construída com Java 21 e Spring Boot. O sistema gerencia clientes, produtos, pedidos e faturamento por meio de serviços independentes que se comunicam via APIs REST utilizando Spring Cloud OpenFeign e publicam eventos através do Apache Kafka. Notas fiscais em PDF são geradas com JasperReports e armazenadas no MinIO.
 
 ### Stack Tecnológica
 
@@ -251,35 +293,40 @@ icompras/
 | Build | Maven |
 | Utilitários | Lombok, MapStruct |
 | Validação | Jakarta Validation |
+| Relatórios | JasperReports 7.0.6 |
+| Armazenamento de Objetos | MinIO (compatível com S3) |
 | Containers | Docker / Docker Compose |
 | Monitoramento | Kafka UI |
 
 ### Arquitetura
 
 ```
-┌──────────────────────────────────────────────────────────────────┐
-│                      Plataforma iCompras                         │
-│                                                                  │
-│  ┌──────────┐   ┌──────────┐   ┌──────────────┐                 │
-│  │ Clientes │   │ Produtos │   │   Pedidos    │                 │
-│  │  :8082   │   │  :8081   │   │    :8080     │                 │
-│  └────┬─────┘   └────┬─────┘   └──┬───┬───┬───┘                 │
-│       │              │             │   │   │                     │
-│       │              │        ┌────┘   │   └────┐                │
-│       │              │        │        │        │                │
-│       ▼              ▼        ▼        ▼        ▼                │
-│  ┌─────────┐   ┌─────────┐  Clientes Produtos  │                │
-│  │icompras │   │icompras │  Service  Service    │                │
-│  │clientes │   │produtos │  (Feign)  (Feign)    │                │
-│  │  (BD)   │   │  (BD)   │                      │                │
-│  └─────────┘   └─────────┘  ┌─────────┐   ┌──────────┐         │
-│                              │icompras │   │  Kafka   │         │
-│                              │pedidos  │──▶│  Broker  │         │
-│                              │  (BD)   │   │  :29092  │         │
-│                              └─────────┘   └──────────┘         │
-│                                                  │               │
-│          PostgreSQL 17.4 — Porta 5555       Kafka UI :8090       │
-└──────────────────────────────────────────────────────────────────┘
+┌───────────────────────────────────────────────────────────────────────┐
+│                       Plataforma iCompras                            │
+│                                                                       │
+│  ┌──────────┐   ┌──────────┐   ┌──────────────┐   ┌──────────────┐   │
+│  │ Clientes │   │ Produtos │   │   Pedidos    │   │ Faturamento  │   │
+│  │  :8082   │   │  :8081   │   │    :8080     │   │    :8083     │   │
+│  └────┬─────┘   └────┬─────┘   └──┬───┬───┬───┘   └──────┬───────┘   │
+│       │              │             │   │   │              │           │
+│       │              │        ┌────┘   │   └────┐         │           │
+│       │              │        │        │        │         │           │
+│       ▼              ▼        ▼        ▼        ▼         │           │
+│  ┌─────────┐   ┌─────────┐  Clientes Produtos  │         │           │
+│  │icompras │   │icompras │  Service  Service    │         │           │
+│  │clientes │   │icompras │  (Feign)  (Feign)    │         │           │
+│  │  (BD)   │   │produtos │                      │         │           │
+│  └─────────┘   │  (BD)   │  ┌─────────┐   ┌──────────┐   │           │
+│                └─────────┘  │icompras │   │  Kafka   │   │           │
+│                             │pedidos  │──▶│  Broker  │──▶│           │
+│                             │  (BD)   │   │  :29092  │   │           │
+│                             └─────────┘   └──────────┘   │           │
+│                                                 │        ▼           │
+│                                            Kafka UI  ┌─────────┐    │
+│                                             :8090    │  MinIO  │    │
+│          PostgreSQL 17.4 — Porta 5555                │  :9000  │    │
+│                                                      └─────────┘    │
+└───────────────────────────────────────────────────────────────────────┘
 ```
 
 ### Microsserviços
@@ -326,6 +373,22 @@ Gerencia pedidos, itens e processamento de pagamento. Comunica-se com os serviç
 **Status do pedido:** `REALIZADO`, `PAGO`, `FATURADO`, `ENVIADO`, `ERRO_PAGAMENTO`, `PREPARANDO_ENVIO`
 
 **Tipos de pagamento:** `CREDIT`, `DEBIT`, `PIX`
+
+#### Faturamento — Porta 8083
+
+Consome eventos Kafka do serviço de Pedidos e gera notas fiscais em PDF utilizando JasperReports. Armazena as notas no MinIO (armazenamento de objetos compatível com S3).
+
+**Consumidor Kafka:**
+- Tópico: `icompras.pedidos-pagos`
+- Grupo de consumo: `icompras-faturamento`
+
+**Fluxo de geração de nota fiscal:**
+1. Escuta eventos de confirmação de pagamento no Kafka
+2. Deserializa os dados do pedido (info do cliente, itens, totais)
+3. Gera um PDF de nota fiscal usando template JasperReports
+4. Faz upload do PDF no bucket MinIO `icompras.faturas`
+
+**Dependências:** Spring Kafka, JasperReports 7.0.6, MinIO Client 8.5.17, Lombok
 
 ##### Webhook de Pagamento
 
@@ -381,6 +444,16 @@ Cada microsserviço possui seu próprio banco de dados, seguindo o padrão **dat
 | `icompraspedidos` | Pedidos | `pedidos`, `item_pedido` |
 | `icomprasauth` | Auth (reservado) | — |
 
+### Armazenamento de Objetos
+
+MinIO fornece armazenamento de objetos compatível com S3 para os PDFs de notas fiscais.
+
+| Recurso | Porta | Descrição |
+|---|---|---|
+| MinIO API | 9000 | API compatível com S3 |
+| MinIO Console | 9001 | Interface de gerenciamento |
+| Bucket | — | `icompras.faturas` |
+
 ### Pré-requisitos
 
 - Java 21+
@@ -399,6 +472,10 @@ docker compose up -d
 # Iniciar o message broker (Kafka na porta 29092, Kafka UI na porta 8090)
 cd ../broker
 docker compose up -d
+
+# Iniciar armazenamento de objetos (MinIO na porta 9000, Console na porta 9001)
+cd ../bucket
+docker compose up -d
 ```
 
 **2. Executar cada microsserviço**
@@ -416,6 +493,10 @@ cd clientes
 
 # Pedidos (porta 8080)
 cd pedidos
+./mvnw spring-boot:run
+
+# Faturamento (porta 8083)
+cd faturamento
 ./mvnw spring-boot:run
 ```
 
@@ -448,13 +529,16 @@ icompras/
 ├── clientes/              # Microsserviço de clientes (Spring Boot 4.0.5)
 ├── produtos/              # Microsserviço de produtos (Spring Boot 3.4.4)
 ├── pedidos/               # Microsserviço de pedidos (Spring Boot 3.3.4)
+├── faturamento/           # Microsserviço de faturamento (Spring Boot 4.0.5)
 └── icompras-servicos/     # Infraestrutura
     ├── database/
     │   ├── docker-compose.yml
     │   ├── schema.sql
     │   └── init-db/
     │       └── create_databases.sql
-    └── broker/
+    ├── broker/
+    │   └── docker-compose.yml
+    └── bucket/
         └── docker-compose.yml
 ```
 
