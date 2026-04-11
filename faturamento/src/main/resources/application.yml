@@ -5,6 +5,18 @@ spring:
     multipart:
       max-file-size: 10MB
       max-request-size: 10MB
+  kafka:
+    bootstrap-servers: 'http://localhost:29092'
+    consumer:
+      group-id: icompras-faturamento
+      auto-offset-reset: earliest
+
+icompras:
+  config:
+    kafka:
+      topic:
+        pedidos-pagos: 'icompras.pedidos-pagos'
+
 server:
   port: 8083
 
