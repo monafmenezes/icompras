@@ -1,5 +1,12 @@
-# 🛒 iCompras
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/3a439c9a-4acd-41a3-b67b-69426775425a" alt="iCompras Logo" width="378">
+</p>
 
+# <p align="center">🛒 iCompras</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/Java-21-orange?style=for-the-badge&logo=openjdk&logoColor=white" alt="Java 21">
+  </p>
 <p align="center">
   <strong>A microservices-based e-commerce platform</strong><br>
   <em>Built with Java 21 • Spring Boot • Kafka • JasperReports • MinIO</em>
