@@ -23,10 +23,11 @@
 | Build Tool | Maven |
 | Utilities | Lombok, MapStruct |
 | Validation | Jakarta Validation |
-| Reporting | JasperReports 7.0.6 |
+| Reporting | JasperReports 7.0.6, JasperReports PDF 7.0.0, OpenPDF 2.0.3 |
 | Object Storage | MinIO (S3-compatible) |
+| API Docs | Springdoc OpenAPI 2.5.0 (Swagger UI) |
 | Containers | Docker / Docker Compose |
-| Monitoring | Kafka UI |
+| Monitoring | Kafka UI (provectuslabs v0.7.2) |
 
 ### Architecture
 
@@ -106,7 +107,12 @@ Manages orders, line items, and payment processing. Communicates with the Client
 
 #### Faturamento (Invoicing) — Port 8083
 
-Consumes Kafka events from the Pedidos service and generates PDF invoices using JasperReports. Stores invoices in MinIO object storage (S3-compatible).
+Consumes Kafka events from the Pedidos service and generates PDF invoices using JasperReports. Stores invoices in MinIO object storage (S3-compatible). Also exposes a REST API for file upload and download.
+
+| Method | Endpoint | Description |
+|---|---|---|
+| POST | `/bucket` | Upload a file to MinIO |
+| GET | `/bucket?filename={filename}` | Get a presigned download URL (1h expiry) |
 
 **Kafka consumer:**
 - Topic: `icompras.pedidos-pagos`
@@ -118,7 +124,7 @@ Consumes Kafka events from the Pedidos service and generates PDF invoices using 
 3. Generates a PDF invoice using a JasperReports template
 4. Uploads the PDF to MinIO bucket `icompras.faturas`
 
-**Dependencies:** Spring Kafka, JasperReports 7.0.6, MinIO Client 8.5.17, Lombok
+**Dependencies:** Spring Kafka, JasperReports 7.0.6, JasperReports PDF 7.0.0, OpenPDF 2.0.3, MinIO Client 8.5.17, Jackson Datatype JSR-310/JDK8, Lombok
 
 ##### Payment Webhook
 
@@ -293,10 +299,11 @@ icompras/
 | Build | Maven |
 | Utilitários | Lombok, MapStruct |
 | Validação | Jakarta Validation |
-| Relatórios | JasperReports 7.0.6 |
+| Relatórios | JasperReports 7.0.6, JasperReports PDF 7.0.0, OpenPDF 2.0.3 |
 | Armazenamento de Objetos | MinIO (compatível com S3) |
+| Documentação de API | Springdoc OpenAPI 2.5.0 (Swagger UI) |
 | Containers | Docker / Docker Compose |
-| Monitoramento | Kafka UI |
+| Monitoramento | Kafka UI (provectuslabs v0.7.2) |
 
 ### Arquitetura
 
@@ -376,7 +383,12 @@ Gerencia pedidos, itens e processamento de pagamento. Comunica-se com os serviç
 
 #### Faturamento — Porta 8083
 
-Consome eventos Kafka do serviço de Pedidos e gera notas fiscais em PDF utilizando JasperReports. Armazena as notas no MinIO (armazenamento de objetos compatível com S3).
+Consome eventos Kafka do serviço de Pedidos e gera notas fiscais em PDF utilizando JasperReports. Armazena as notas no MinIO (armazenamento de objetos compatível com S3). Também expõe uma API REST para upload e download de arquivos.
+
+| Método | Endpoint | Descrição |
+|---|---|---|
+| POST | `/bucket` | Fazer upload de arquivo no MinIO |
+| GET | `/bucket?filename={filename}` | Obter URL de download pré-assinada (1h de validade) |
 
 **Consumidor Kafka:**
 - Tópico: `icompras.pedidos-pagos`
@@ -388,7 +400,7 @@ Consome eventos Kafka do serviço de Pedidos e gera notas fiscais em PDF utiliza
 3. Gera um PDF de nota fiscal usando template JasperReports
 4. Faz upload do PDF no bucket MinIO `icompras.faturas`
 
-**Dependências:** Spring Kafka, JasperReports 7.0.6, MinIO Client 8.5.17, Lombok
+**Dependências:** Spring Kafka, JasperReports 7.0.6, JasperReports PDF 7.0.0, OpenPDF 2.0.3, MinIO Client 8.5.17, Jackson Datatype JSR-310/JDK8, Lombok
 
 ##### Webhook de Pagamento
 
