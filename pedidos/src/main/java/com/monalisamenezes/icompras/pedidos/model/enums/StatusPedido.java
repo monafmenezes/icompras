@@ -1,16 +1,10 @@
 package com.monalisamenezes.icompras.pedidos.model.enums;
 
 public enum StatusPedido {
-    REALIZADO("realizado"),
-    PAGO("pago"),
-    FATURADO("faturado"),
-    ENVIADO("enviado"),
-    ERRO_PAGAMENTO("erro_pagamento"),
-    PREPARANDO_ENVIO("preparando_envio");
-
-    private final String descricao;
-
-    StatusPedido(String descricao) {
-        this.descricao = descricao;
-    }
+    REALIZADO,
+    PAGO,
+    FATURADO,
+    ENVIADO,
+    ERRO_PAGAMENTO,
+    PREPARANDO_ENVIO
 }

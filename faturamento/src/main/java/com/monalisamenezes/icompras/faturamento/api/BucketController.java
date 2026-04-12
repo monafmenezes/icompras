@@ -32,7 +32,7 @@ public class BucketController {
     @GetMapping
     public ResponseEntity<String> getUrl(@RequestParam String filename) {
         try {
-            String url = service.getDownloadUrl(filename);
+            String url = service.getUrl(filename);
             return ResponseEntity.ok(url);
         } catch (Exception e) {
             return ResponseEntity.status(500).body("Erro ao obter a URL: " + e.getMessage());

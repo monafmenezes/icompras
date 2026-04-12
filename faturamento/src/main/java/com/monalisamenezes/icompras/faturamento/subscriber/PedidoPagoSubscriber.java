@@ -1,7 +1,7 @@
 package com.monalisamenezes.icompras.faturamento.subscriber;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.monalisamenezes.icompras.faturamento.GeradorNotaFiscalService;
+import com.monalisamenezes.icompras.faturamento.service.GeradorNotaFiscalService;
 import com.monalisamenezes.icompras.faturamento.config.model.Pedido;
 import com.monalisamenezes.icompras.faturamento.mapper.PedidoMapper;
 import com.monalisamenezes.icompras.faturamento.subscriber.representation.DetalhePedidoRepresentation;

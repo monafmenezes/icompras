@@ -33,13 +33,13 @@ public class BucketService {
         }
     }
 
-    public String getDownloadUrl(String fileName) {
+    public String getUrl(String fileName) {
         try {
             var object = GetPresignedObjectUrlArgs.builder()
                     .method(Method.GET)
                     .bucket(props.getBucketName())
                     .object(fileName)
-                    .expiry(1, TimeUnit.HOURS)
+                    .expiry(7, TimeUnit.DAYS)
                     .build();
 
             return client.getPresignedObjectUrl(object);

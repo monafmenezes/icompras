@@ -16,6 +16,7 @@ icompras:
     kafka:
       topic:
         pedidos-pagos: 'icompras.pedidos-pagos'
+        pedidos-faturados: 'icompras.pedidos-faturados'
 
 server:
   port: 8083
