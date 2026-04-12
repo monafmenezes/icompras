@@ -1,35 +1,43 @@
-# iCompras
+# 🛒 iCompras
 
-**[English](#english)** | **[Português](#português)**
+<p align="center">
+  <strong>A microservices-based e-commerce platform</strong><br>
+  <em>Built with Java 21 • Spring Boot • Kafka • JasperReports • MinIO</em>
+</p>
+
+<p align="center">
+  <a href="#-english">🇺🇸 English</a> •
+  <a href="#-português">🇧🇷 Português</a>
+</p>
 
 ---
 
-## English
+## 🇺🇸 English
 
-### About
+### 📋 About
 
-**iCompras** is a microservices-based e-commerce platform built with Java 21 and Spring Boot. The system manages customers, products, orders, and invoicing through independent services that communicate via REST APIs using Spring Cloud OpenFeign and publish events through Apache Kafka. Invoice PDFs are generated with JasperReports and stored in MinIO.
+**iCompras** is a microservices-based e-commerce platform built with **Java 21** and **Spring Boot**. The system manages customers, products, orders, and invoicing through independent services that communicate via REST APIs using Spring Cloud OpenFeign and publish events through Apache Kafka. Invoice PDFs are generated with JasperReports and stored in MinIO.
 
-### Tech Stack
+### 🛠️ Tech Stack
 
 | Component | Details |
 |---|---|
-| Language | Java 21 |
-| Framework | Spring Boot (3.3.4 – 4.0.5) |
-| Database | PostgreSQL 17.4 |
-| ORM | Spring Data JPA / Hibernate |
-| Sync Communication | Spring Cloud OpenFeign |
-| Async Communication | Apache Kafka 7.2.15 |
-| Build Tool | Maven |
-| Utilities | Lombok, MapStruct |
-| Validation | Jakarta Validation |
-| Reporting | JasperReports 7.0.6, JasperReports PDF 7.0.0, OpenPDF 2.0.3 |
-| Object Storage | MinIO (S3-compatible) |
-| API Docs | Springdoc OpenAPI 2.5.0 (Swagger UI) |
-| Containers | Docker / Docker Compose |
-| Monitoring | Kafka UI (provectuslabs v0.7.2) |
+| ☕ Language | Java 21 |
+| 🌱 Framework | Spring Boot (3.3.4 – 4.0.5) |
+| 🐘 Database | PostgreSQL 17.4 |
+| 🗃️ ORM | Spring Data JPA / Hibernate |
+| 🔗 Sync Communication | Spring Cloud OpenFeign |
+| 📨 Async Communication | Apache Kafka 7.2.15 |
+| 🔨 Build Tool | Maven |
+| ⚙️ Utilities | Lombok, MapStruct |
+| ✅ Validation | Jakarta Validation |
+| 📄 Reporting | JasperReports 7.0.6, JasperReports PDF 7.0.0, OpenPDF 2.0.3 |
+| 📦 Object Storage | MinIO (S3-compatible) |
+| 📖 API Docs | Springdoc OpenAPI 2.5.0 (Swagger UI) |
+| 🐳 Containers | Docker / Docker Compose |
+| 📊 Monitoring | Kafka UI (provectuslabs v0.7.2) |
 
-### Architecture
+### 🏗️ Architecture
 
 ```
 ┌───────────────────────────────────────────────────────────────────────┐
@@ -60,9 +68,9 @@
 └───────────────────────────────────────────────────────────────────────┘
 ```
 
-### Microservices
+### 🔧 Microservices
 
-#### Clientes (Customers) — Port 8082
+#### 👥 Clientes (Customers) — Port 8082
 
 Manages customer registration and queries.
 
@@ -74,7 +82,7 @@ Manages customer registration and queries.
 
 **Entity fields:** `codigo`, `nome`, `cpf`, `logradouro`, `numero`, `bairro`, `email`, `telefone`
 
-#### Produtos (Products) — Port 8081
+#### 📦 Produtos (Products) — Port 8081
 
 Manages the product catalog.
 
@@ -86,7 +94,7 @@ Manages the product catalog.
 
 **Entity fields:** `codigo`, `nome`, `valorUnitario`, `descricao`
 
-#### Pedidos (Orders) — Port 8080
+#### 🛍️ Pedidos (Orders) — Port 8080
 
 Manages orders, line items, and payment processing. Communicates with the Clientes and Produtos services via Feign clients to validate data before creating orders. Publishes payment events to Kafka upon successful payment.
 
@@ -105,7 +113,7 @@ Manages orders, line items, and payment processing. Communicates with the Client
 
 **Payment types:** `CREDIT`, `DEBIT`, `PIX`
 
-#### Faturamento (Invoicing) — Port 8083
+#### 🧾 Faturamento (Invoicing) — Port 8083
 
 Consumes Kafka events from the Pedidos service and generates PDF invoices using JasperReports. Stores invoices in MinIO object storage (S3-compatible). Also exposes a REST API for file upload and download.
 
@@ -119,14 +127,14 @@ Consumes Kafka events from the Pedidos service and generates PDF invoices using 
 - Consumer group: `icompras-faturamento`
 
 **Invoice generation flow:**
-1. Listens for payment confirmation events on Kafka
-2. Deserializes order data (customer info, items, totals)
-3. Generates a PDF invoice using a JasperReports template
-4. Uploads the PDF to MinIO bucket `icompras.faturas`
+1. 👂 Listens for payment confirmation events on Kafka
+2. 📥 Deserializes order data (customer info, items, totals)
+3. 📄 Generates a PDF invoice using a JasperReports template
+4. ☁️ Uploads the PDF to MinIO bucket `icompras.faturas`
 
 **Dependencies:** Spring Kafka, JasperReports 7.0.6, JasperReports PDF 7.0.0, OpenPDF 2.0.3, MinIO Client 8.5.17, Jackson Datatype JSR-310/JDK8, Lombok
 
-##### Payment Webhook
+##### 🔔 Payment Webhook
 
 The endpoint `POST /pedidos/callback-pagamentos` receives payment status callbacks from external banking/payment services. It updates the order status to `PAGO` (on success) or `ERRO_PAGAMENTO` (on failure). When payment succeeds, the order details are published to the Kafka topic `icompras.pedidos-pagos`.
 
@@ -145,7 +153,7 @@ The endpoint `POST /pedidos/callback-pagamentos` receives payment status callbac
 | `status` | boolean | Payment success status |
 | `observacoes` | String | Notes about the payment |
 
-##### Retry Payment
+##### 🔄 Retry Payment
 
 The endpoint `POST /pedidos/pagamentos` allows adding a new payment attempt for an existing order.
 
@@ -157,7 +165,7 @@ The endpoint `POST /pedidos/pagamentos` allows adding a new payment attempt for 
 | `dadosCartao` | String | Card data |
 | `tipoPagamento` | String | Payment type (`CREDIT`, `DEBIT`, `PIX`) |
 
-### Kafka Events
+### 📨 Kafka Events
 
 The Pedidos service publishes events to Apache Kafka for asynchronous processing.
 
@@ -169,7 +177,7 @@ The Pedidos service publishes events to Apache Kafka for asynchronous processing
 
 Kafka UI is available at `http://localhost:8090` for monitoring topics and messages.
 
-### Database
+### 🗄️ Database
 
 Each microservice has its own database, following the **database-per-service** pattern:
 
@@ -180,7 +188,7 @@ Each microservice has its own database, following the **database-per-service** p
 | `icompraspedidos` | Pedidos | `pedidos`, `item_pedido` |
 | `icomprasauth` | Auth (reserved) | — |
 
-### Object Storage
+### 📦 Object Storage
 
 MinIO provides S3-compatible object storage for invoice PDFs.
 
@@ -190,15 +198,15 @@ MinIO provides S3-compatible object storage for invoice PDFs.
 | MinIO Console | 9001 | Management UI |
 | Bucket | — | `icompras.faturas` |
 
-### Prerequisites
+### ✅ Prerequisites
 
-- Java 21+
-- Maven 3.8+
-- Docker & Docker Compose
+- ☕ Java 21+
+- 🔨 Maven 3.8+
+- 🐳 Docker & Docker Compose
 
-### Getting Started
+### 🚀 Getting Started
 
-**1. Start the infrastructure**
+**1️⃣ Start the infrastructure**
 
 ```bash
 # Start the database (PostgreSQL on port 5555)
@@ -214,7 +222,7 @@ cd ../bucket
 docker compose up -d
 ```
 
-**2. Run each microservice**
+**2️⃣ Run each microservice**
 
 Open a terminal for each service and run:
 
@@ -236,7 +244,7 @@ cd faturamento
 ./mvnw spring-boot:run
 ```
 
-**3. Test the APIs**
+**3️⃣ Test the APIs**
 
 ```bash
 # Create a customer
@@ -258,15 +266,15 @@ curl -X POST http://localhost:8080/pedidos \
 curl http://localhost:8080/pedidos/1
 ```
 
-### Project Structure
+### 📁 Project Structure
 
 ```
 icompras/
-├── clientes/              # Customer microservice (Spring Boot 4.0.5)
-├── produtos/              # Product microservice (Spring Boot 3.4.4)
-├── pedidos/               # Order microservice (Spring Boot 3.3.4)
-├── faturamento/           # Invoicing microservice (Spring Boot 4.0.5)
-└── icompras-servicos/     # Infrastructure
+├── 👥 clientes/           # Customer microservice (Spring Boot 4.0.5)
+├── 📦 produtos/           # Product microservice (Spring Boot 3.4.4)
+├── 🛍️ pedidos/            # Order microservice (Spring Boot 3.3.4)
+├── 🧾 faturamento/        # Invoicing microservice (Spring Boot 4.0.5)
+└── ⚙️ icompras-servicos/  # Infrastructure
     ├── database/
     │   ├── docker-compose.yml
     │   ├── schema.sql
@@ -280,32 +288,32 @@ icompras/
 
 ---
 
-## Português
+## 🇧🇷 Português
 
-### Sobre
+### 📋 Sobre
 
-**iCompras** é uma plataforma de e-commerce baseada em microsserviços, construída com Java 21 e Spring Boot. O sistema gerencia clientes, produtos, pedidos e faturamento por meio de serviços independentes que se comunicam via APIs REST utilizando Spring Cloud OpenFeign e publicam eventos através do Apache Kafka. Notas fiscais em PDF são geradas com JasperReports e armazenadas no MinIO.
+**iCompras** é uma plataforma de e-commerce baseada em microsserviços, construída com **Java 21** e **Spring Boot**. O sistema gerencia clientes, produtos, pedidos e faturamento por meio de serviços independentes que se comunicam via APIs REST utilizando Spring Cloud OpenFeign e publicam eventos através do Apache Kafka. Notas fiscais em PDF são geradas com JasperReports e armazenadas no MinIO.
 
-### Stack Tecnológica
+### 🛠️ Stack Tecnológica
 
 | Componente | Detalhes |
 |---|---|
-| Linguagem | Java 21 |
-| Framework | Spring Boot (3.3.4 – 4.0.5) |
-| Banco de Dados | PostgreSQL 17.4 |
-| ORM | Spring Data JPA / Hibernate |
-| Comunicação Síncrona | Spring Cloud OpenFeign |
-| Comunicação Assíncrona | Apache Kafka 7.2.15 |
-| Build | Maven |
-| Utilitários | Lombok, MapStruct |
-| Validação | Jakarta Validation |
-| Relatórios | JasperReports 7.0.6, JasperReports PDF 7.0.0, OpenPDF 2.0.3 |
-| Armazenamento de Objetos | MinIO (compatível com S3) |
-| Documentação de API | Springdoc OpenAPI 2.5.0 (Swagger UI) |
-| Containers | Docker / Docker Compose |
-| Monitoramento | Kafka UI (provectuslabs v0.7.2) |
+| ☕ Linguagem | Java 21 |
+| 🌱 Framework | Spring Boot (3.3.4 – 4.0.5) |
+| 🐘 Banco de Dados | PostgreSQL 17.4 |
+| 🗃️ ORM | Spring Data JPA / Hibernate |
+| 🔗 Comunicação Síncrona | Spring Cloud OpenFeign |
+| 📨 Comunicação Assíncrona | Apache Kafka 7.2.15 |
+| 🔨 Build | Maven |
+| ⚙️ Utilitários | Lombok, MapStruct |
+| ✅ Validação | Jakarta Validation |
+| 📄 Relatórios | JasperReports 7.0.6, JasperReports PDF 7.0.0, OpenPDF 2.0.3 |
+| 📦 Armazenamento de Objetos | MinIO (compatível com S3) |
+| 📖 Documentação de API | Springdoc OpenAPI 2.5.0 (Swagger UI) |
+| 🐳 Containers | Docker / Docker Compose |
+| 📊 Monitoramento | Kafka UI (provectuslabs v0.7.2) |
 
-### Arquitetura
+### 🏗️ Arquitetura
 
 ```
 ┌───────────────────────────────────────────────────────────────────────┐
@@ -336,9 +344,9 @@ icompras/
 └───────────────────────────────────────────────────────────────────────┘
 ```
 
-### Microsserviços
+### 🔧 Microsserviços
 
-#### Clientes — Porta 8082
+#### 👥 Clientes — Porta 8082
 
 Gerencia o cadastro e consulta de clientes.
 
@@ -350,7 +358,7 @@ Gerencia o cadastro e consulta de clientes.
 
 **Campos da entidade:** `codigo`, `nome`, `cpf`, `logradouro`, `numero`, `bairro`, `email`, `telefone`
 
-#### Produtos — Porta 8081
+#### 📦 Produtos — Porta 8081
 
 Gerencia o catálogo de produtos.
 
@@ -362,7 +370,7 @@ Gerencia o catálogo de produtos.
 
 **Campos da entidade:** `codigo`, `nome`, `valorUnitario`, `descricao`
 
-#### Pedidos — Porta 8080
+#### 🛍️ Pedidos — Porta 8080
 
 Gerencia pedidos, itens e processamento de pagamento. Comunica-se com os serviços de Clientes e Produtos via Feign clients para validar dados antes de criar pedidos. Publica eventos de pagamento no Kafka após confirmação.
 
@@ -381,7 +389,7 @@ Gerencia pedidos, itens e processamento de pagamento. Comunica-se com os serviç
 
 **Tipos de pagamento:** `CREDIT`, `DEBIT`, `PIX`
 
-#### Faturamento — Porta 8083
+#### 🧾 Faturamento — Porta 8083
 
 Consome eventos Kafka do serviço de Pedidos e gera notas fiscais em PDF utilizando JasperReports. Armazena as notas no MinIO (armazenamento de objetos compatível com S3). Também expõe uma API REST para upload e download de arquivos.
 
@@ -395,14 +403,14 @@ Consome eventos Kafka do serviço de Pedidos e gera notas fiscais em PDF utiliza
 - Grupo de consumo: `icompras-faturamento`
 
 **Fluxo de geração de nota fiscal:**
-1. Escuta eventos de confirmação de pagamento no Kafka
-2. Deserializa os dados do pedido (info do cliente, itens, totais)
-3. Gera um PDF de nota fiscal usando template JasperReports
-4. Faz upload do PDF no bucket MinIO `icompras.faturas`
+1. 👂 Escuta eventos de confirmação de pagamento no Kafka
+2. 📥 Deserializa os dados do pedido (info do cliente, itens, totais)
+3. 📄 Gera um PDF de nota fiscal usando template JasperReports
+4. ☁️ Faz upload do PDF no bucket MinIO `icompras.faturas`
 
 **Dependências:** Spring Kafka, JasperReports 7.0.6, JasperReports PDF 7.0.0, OpenPDF 2.0.3, MinIO Client 8.5.17, Jackson Datatype JSR-310/JDK8, Lombok
 
-##### Webhook de Pagamento
+##### 🔔 Webhook de Pagamento
 
 O endpoint `POST /pedidos/callback-pagamentos` recebe callbacks de status de pagamento de serviços bancários/pagamento externos. Atualiza o status do pedido para `PAGO` (em caso de sucesso) ou `ERRO_PAGAMENTO` (em caso de falha). Quando o pagamento é confirmado, os detalhes do pedido são publicados no tópico Kafka `icompras.pedidos-pagos`.
 
@@ -421,7 +429,7 @@ O endpoint `POST /pedidos/callback-pagamentos` recebe callbacks de status de pag
 | `status` | boolean | Status de sucesso do pagamento |
 | `observacoes` | String | Observações sobre o pagamento |
 
-##### Retentar Pagamento
+##### 🔄 Retentar Pagamento
 
 O endpoint `POST /pedidos/pagamentos` permite adicionar uma nova tentativa de pagamento para um pedido existente.
 
@@ -433,7 +441,7 @@ O endpoint `POST /pedidos/pagamentos` permite adicionar uma nova tentativa de pa
 | `dadosCartao` | String | Dados do cartão |
 | `tipoPagamento` | String | Tipo de pagamento (`CREDIT`, `DEBIT`, `PIX`) |
 
-### Eventos Kafka
+### 📨 Eventos Kafka
 
 O serviço de Pedidos publica eventos no Apache Kafka para processamento assíncrono.
 
@@ -445,7 +453,7 @@ O serviço de Pedidos publica eventos no Apache Kafka para processamento assínc
 
 O Kafka UI está disponível em `http://localhost:8090` para monitoramento de tópicos e mensagens.
 
-### Banco de Dados
+### 🗄️ Banco de Dados
 
 Cada microsserviço possui seu próprio banco de dados, seguindo o padrão **database-per-service**:
 
@@ -456,7 +464,7 @@ Cada microsserviço possui seu próprio banco de dados, seguindo o padrão **dat
 | `icompraspedidos` | Pedidos | `pedidos`, `item_pedido` |
 | `icomprasauth` | Auth (reservado) | — |
 
-### Armazenamento de Objetos
+### 📦 Armazenamento de Objetos
 
 MinIO fornece armazenamento de objetos compatível com S3 para os PDFs de notas fiscais.
 
@@ -466,15 +474,15 @@ MinIO fornece armazenamento de objetos compatível com S3 para os PDFs de notas 
 | MinIO Console | 9001 | Interface de gerenciamento |
 | Bucket | — | `icompras.faturas` |
 
-### Pré-requisitos
+### ✅ Pré-requisitos
 
-- Java 21+
-- Maven 3.8+
-- Docker e Docker Compose
+- ☕ Java 21+
+- 🔨 Maven 3.8+
+- 🐳 Docker e Docker Compose
 
-### Como Executar
+### 🚀 Como Executar
 
-**1. Iniciar a infraestrutura**
+**1️⃣ Iniciar a infraestrutura**
 
 ```bash
 # Iniciar o banco de dados (PostgreSQL na porta 5555)
@@ -490,7 +498,7 @@ cd ../bucket
 docker compose up -d
 ```
 
-**2. Executar cada microsserviço**
+**2️⃣ Executar cada microsserviço**
 
 Abra um terminal para cada serviço e execute:
 
@@ -512,7 +520,7 @@ cd faturamento
 ./mvnw spring-boot:run
 ```
 
-**3. Testar as APIs**
+**3️⃣ Testar as APIs**
 
 ```bash
 # Cadastrar um cliente
@@ -534,15 +542,15 @@ curl -X POST http://localhost:8080/pedidos \
 curl http://localhost:8080/pedidos/1
 ```
 
-### Estrutura do Projeto
+### 📁 Estrutura do Projeto
 
 ```
 icompras/
-├── clientes/              # Microsserviço de clientes (Spring Boot 4.0.5)
-├── produtos/              # Microsserviço de produtos (Spring Boot 3.4.4)
-├── pedidos/               # Microsserviço de pedidos (Spring Boot 3.3.4)
-├── faturamento/           # Microsserviço de faturamento (Spring Boot 4.0.5)
-└── icompras-servicos/     # Infraestrutura
+├── 👥 clientes/           # Microsserviço de clientes (Spring Boot 4.0.5)
+├── 📦 produtos/           # Microsserviço de produtos (Spring Boot 3.4.4)
+├── 🛍️ pedidos/            # Microsserviço de pedidos (Spring Boot 3.3.4)
+├── 🧾 faturamento/        # Microsserviço de faturamento (Spring Boot 4.0.5)
+└── ⚙️ icompras-servicos/  # Infraestrutura
     ├── database/
     │   ├── docker-compose.yml
     │   ├── schema.sql
@@ -556,4 +564,6 @@ icompras/
 
 ---
 
-**Developed by Monalisa Menezes**
+<p align="center">
+  💻 <strong>Developed by Monalisa Menezes</strong> 💜
+</p>
