@@ -15,24 +15,34 @@ import java.util.Map;
 
 @Service
 public class NotaFiscalService {
-    @Value("{classpath:reports/nota-fiscal.jrxml}")
+    @Value("classpath:reports/nota-fiscal.jrxml")
     private Resource notaFiscal;
 
-    @Value("{classpath:images/logo.png}")
+    @Value("classpath:images/logo.png")
     private Resource imagem;
 
     public byte[] gerarNota(Pedido pedido) {
         try (InputStream inputStream = notaFiscal.getInputStream()) {
             Map<String, Object> params = getStringObjectMap(pedido);
 
-            var dataSource = new JRBeanCollectionDataSource(pedido.itens());
+            var itensMap = pedido.itens().stream().map(item -> {
+                Map<String, Object> m = new HashMap<>();
+                m.put("codigo", item.codigo());
+                m.put("descricao", item.descricao());
+                m.put("quantidade", item.quantidade());
+                m.put("valorUnitario", item.valorUnitario());
+                m.put("total", item.total());
+                return m;
+            }).toList();
+
+            var dataSource = new JRBeanCollectionDataSource(itensMap);
 
             JasperReport jasperReport = JasperCompileManager.compileReport(inputStream);
             JasperPrint jasperPrint = JasperFillManager.fillReport(jasperReport, params, dataSource);
 
             return JasperExportManager.exportReportToPdf(jasperPrint);
         } catch (RuntimeException | IOException | JRException e) {
-            throw new RuntimeException(e);
+            throw new RuntimeException("Erro ao gerar PDF: " + e.getMessage(), e);
         }
     }
 
@@ -47,7 +57,7 @@ public class NotaFiscalService {
         params.put("TELEFONE", pedido.cliente().telefone());
         params.put("DATA_PEDIDO", pedido.data());
         params.put("TOTAL_PEDIDO", pedido.total());
-        params.put("LOGO", imagem.getURL());
+        params.put("LOGO", imagem.getInputStream());
         return params;
     }
 }
