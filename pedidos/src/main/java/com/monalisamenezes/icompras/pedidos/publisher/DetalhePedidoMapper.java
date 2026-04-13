@@ -13,6 +13,8 @@ public interface DetalhePedidoMapper {
     @Mapping(source = "total", target = "total")
     @Mapping(source = "status", target = "status")
     @Mapping(source = "itens", target = "itens")
+    @Mapping(source = "urlNf", target = "urlNf")
+    @Mapping(source = "codigoRastreio", target = "codigoRastreio")
     @Mapping(source = "dadosCliente.nome", target = "nome")
     @Mapping(source = "dadosCliente.cpf", target = "cpf")
     @Mapping(source = "dadosCliente.logradouro", target = "logradouro")
