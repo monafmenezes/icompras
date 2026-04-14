@@ -90,8 +90,9 @@ Manages customer registration and queries.
 | POST | `/clientes` | Create a new customer |
 | GET | `/clientes` | List all customers |
 | GET | `/clientes/{codigo}` | Get customer by ID |
+| DELETE | `/clientes/{codigo}` | Soft delete a customer (sets `ativo` to `false`) |
 
-**Entity fields:** `codigo`, `nome`, `cpf`, `logradouro`, `numero`, `bairro`, `email`, `telefone`
+**Entity fields:** `codigo`, `nome`, `cpf`, `logradouro`, `numero`, `bairro`, `email`, `telefone`, `ativo`
 
 #### 📦 Produtos (Products) — Port 8081
 
@@ -102,12 +103,13 @@ Manages the product catalog.
 | POST | `/produtos` | Create a new product |
 | GET | `/produtos` | List all products |
 | GET | `/produtos/{codigo}` | Get product by ID |
+| DELETE | `/produtos/{codigo}` | Soft delete a product (sets `ativo` to `false`) |
 
-**Entity fields:** `codigo`, `nome`, `valorUnitario`, `descricao`
+**Entity fields:** `codigo`, `nome`, `valorUnitario`, `descricao`, `ativo`
 
 #### 🛍️ Pedidos (Orders) — Port 8080
 
-Manages orders, line items, and payment processing. Communicates with the Clientes and Produtos services via Feign clients to validate data before creating orders. Publishes payment events to Kafka upon successful payment.
+Manages orders, line items, and payment processing. Communicates with the Clientes and Produtos services via Feign clients to validate data before creating orders. Publishes payment events to Kafka upon successful payment. Also consumes events from the `icompras.pedidos-faturados` and `icompras.pedidos-enviados` topics to update order status with invoice URLs and tracking codes.
 
 | Method | Endpoint | Description |
 |---|---|---|
@@ -115,6 +117,11 @@ Manages orders, line items, and payment processing. Communicates with the Client
 | GET | `/pedidos/{codigo}` | Get order details |
 | POST | `/pedidos/pagamentos` | Retry payment for an existing order |
 | POST | `/pedidos/callback-pagamentos` | Payment status webhook |
+
+**Kafka consumer:**
+- Topics: `icompras.pedidos-faturados`, `icompras.pedidos-enviados`
+- Consumer group: `icompras-atualizacao-pedido`
+- Updates order status, invoice URL (`urlNf`), and tracking code (`codigoRastreio`)
 
 **Order entity fields:** `codigo`, `codigoCliente`, `dataPedido`, `chavePagamento`, `observacoes`, `status`, `total`, `codigoRastreio`, `urlNf`, `itens`
 
@@ -423,8 +430,9 @@ Gerencia o cadastro e consulta de clientes.
 | POST | `/clientes` | Cadastrar novo cliente |
 | GET | `/clientes` | Listar todos os clientes |
 | GET | `/clientes/{codigo}` | Buscar cliente por ID |
+| DELETE | `/clientes/{codigo}` | Exclusão lógica do cliente (define `ativo` como `false`) |
 
-**Campos da entidade:** `codigo`, `nome`, `cpf`, `logradouro`, `numero`, `bairro`, `email`, `telefone`
+**Campos da entidade:** `codigo`, `nome`, `cpf`, `logradouro`, `numero`, `bairro`, `email`, `telefone`, `ativo`
 
 #### 📦 Produtos — Porta 8081
 
@@ -435,12 +443,13 @@ Gerencia o catálogo de produtos.
 | POST | `/produtos` | Cadastrar novo produto |
 | GET | `/produtos` | Listar todos os produtos |
 | GET | `/produtos/{codigo}` | Buscar produto por ID |
+| DELETE | `/produtos/{codigo}` | Exclusão lógica do produto (define `ativo` como `false`) |
 
-**Campos da entidade:** `codigo`, `nome`, `valorUnitario`, `descricao`
+**Campos da entidade:** `codigo`, `nome`, `valorUnitario`, `descricao`, `ativo`
 
 #### 🛍️ Pedidos — Porta 8080
 
-Gerencia pedidos, itens e processamento de pagamento. Comunica-se com os serviços de Clientes e Produtos via Feign clients para validar dados antes de criar pedidos. Publica eventos de pagamento no Kafka após confirmação.
+Gerencia pedidos, itens e processamento de pagamento. Comunica-se com os serviços de Clientes e Produtos via Feign clients para validar dados antes de criar pedidos. Publica eventos de pagamento no Kafka após confirmação. Também consome eventos dos tópicos `icompras.pedidos-faturados` e `icompras.pedidos-enviados` para atualizar o status do pedido com URL da nota fiscal e código de rastreio.
 
 | Método | Endpoint | Descrição |
 |---|---|---|
@@ -448,6 +457,11 @@ Gerencia pedidos, itens e processamento de pagamento. Comunica-se com os serviç
 | GET | `/pedidos/{codigo}` | Consultar detalhes do pedido |
 | POST | `/pedidos/pagamentos` | Retentar pagamento de um pedido |
 | POST | `/pedidos/callback-pagamentos` | Webhook de status de pagamento |
+
+**Consumidor Kafka:**
+- Tópicos: `icompras.pedidos-faturados`, `icompras.pedidos-enviados`
+- Grupo de consumo: `icompras-atualizacao-pedido`
+- Atualiza status do pedido, URL da nota fiscal (`urlNf`) e código de rastreio (`codigoRastreio`)
 
 **Campos da entidade pedido:** `codigo`, `codigoCliente`, `dataPedido`, `chavePagamento`, `observacoes`, `status`, `total`, `codigoRastreio`, `urlNf`, `itens`
 
