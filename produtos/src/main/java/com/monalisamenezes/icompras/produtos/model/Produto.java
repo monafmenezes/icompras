@@ -28,4 +28,9 @@ public class Produto {
 
     @Column(nullable = false)
     private Boolean ativo;
+
+    @PrePersist
+    public void prePersist() {
+        setAtivo(true);
+    }
 }
