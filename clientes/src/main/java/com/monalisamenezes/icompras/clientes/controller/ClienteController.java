@@ -32,4 +32,10 @@ public class ClienteController {
 
         return ResponseEntity.ok(lista);
     }
+
+    @DeleteMapping("/{codigo}")
+    public ResponseEntity<Void> delete(@PathVariable Long codigo) {
+        service.delete(codigo);
+        return ResponseEntity.noContent().build();
+    }
 }

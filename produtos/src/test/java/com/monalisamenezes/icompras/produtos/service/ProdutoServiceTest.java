@@ -33,6 +33,7 @@ public class ProdutoServiceTest {
                 null,
                 "Teclado",
                 new BigDecimal("150.00"),
+                true,
                 "Teclado sem fio."
         );
 
@@ -68,11 +69,11 @@ public class ProdutoServiceTest {
 
         when(repository.findById(codigo)).thenReturn(java.util.Optional.of(produto));
 
-        ProdutoDTO result = service.obterPorCodigo(codigo).orElse(null);
+        Produto result = service.obterPorCodigo(codigo).orElse(null);
 
         assertNotNull(result);
-        assertEquals(codigo, result.codigo());
-        assertEquals("Teclado", result.nome());
+        assertEquals(codigo, result.getCodigo());
+        assertEquals("Teclado", result.getNome());
 
         verify(repository, times(1)).findById(codigo);
     }

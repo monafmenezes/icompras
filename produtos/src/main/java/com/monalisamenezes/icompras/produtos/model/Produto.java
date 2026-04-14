@@ -25,4 +25,6 @@ public class Produto {
 
     @Column(name = "descricao", nullable = true, length = 250)
     private String descricao;
+
+    private Boolean ativo;
 }

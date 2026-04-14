@@ -36,4 +36,6 @@ public class Cliente {
 
     @Column(name = "telefone", length = 20)
     private String telefone;
+
+    private Boolean ativo;
 }

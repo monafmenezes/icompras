@@ -23,7 +23,7 @@
 
 ### 📋 About
 
-**iCompras** is a microservices-based e-commerce platform built with **Java 21** and **Spring Boot**. The system manages customers, products, orders, and invoicing through independent services that communicate via REST APIs using Spring Cloud OpenFeign and publish events through Apache Kafka. Invoice PDFs are generated with JasperReports and stored in MinIO.
+**iCompras** is a microservices-based e-commerce platform built with **Java 21** and **Spring Boot**. The system manages customers, products, orders, invoicing, and logistics through independent services that communicate via REST APIs using Spring Cloud OpenFeign and publish events through Apache Kafka. Invoice PDFs are generated with JasperReports and stored in MinIO. Shipment processing is handled through an event-driven pipeline with automatic tracking code generation.
 
 ### 🛠️ Tech Stack
 
@@ -47,32 +47,36 @@
 ### 🏗️ Architecture
 
 ```
-┌───────────────────────────────────────────────────────────────────────┐
-│                         iCompras Platform                             │
-│                                                                       │
-│  ┌──────────┐   ┌──────────┐   ┌──────────────┐   ┌──────────────┐   │
-│  │ Clientes │   │ Produtos │   │   Pedidos    │   │ Faturamento  │   │
-│  │  :8082   │   │  :8081   │   │    :8080     │   │    :8083     │   │
-│  └────┬─────┘   └────┬─────┘   └──┬───┬───┬───┘   └──────┬───────┘   │
-│       │              │             │   │   │              │           │
-│       │              │        ┌────┘   │   └────┐         │           │
-│       │              │        │        │        │         │           │
-│       ▼              ▼        ▼        ▼        ▼         │           │
-│  ┌─────────┐   ┌─────────┐  Clientes Produtos  │         │           │
-│  │icompras │   │icompras │  Service  Service    │         │           │
-│  │clientes │   │icompras │  (Feign)  (Feign)    │         │           │
-│  │  (DB)   │   │produtos │                      │         │           │
-│  └─────────┘   │  (DB)   │  ┌─────────┐   ┌──────────┐   │           │
-│                └─────────┘  │icompras │   │  Kafka   │   │           │
-│                             │pedidos  │──▶│  Broker  │──▶│           │
-│                             │  (DB)   │   │  :29092  │   │           │
-│                             └─────────┘   └──────────┘   │           │
-│                                                 │        ▼           │
-│                                            Kafka UI  ┌─────────┐    │
-│                                             :8090    │  MinIO  │    │
-│          PostgreSQL 17.4 — Port 5555                 │  :9000  │    │
-│                                                      └─────────┘    │
-└───────────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                            iCompras Platform                                │
+│                                                                              │
+│  ┌──────────┐  ┌──────────┐  ┌──────────────┐  ┌─────────────┐ ┌──────────┐ │
+│  │ Clientes │  │ Produtos │  │   Pedidos    │  │ Faturamento │ │Logistica │ │
+│  │  :8082   │  │  :8081   │  │    :8080     │  │    :8083    │ │  :8084   │ │
+│  └────┬─────┘  └────┬─────┘  └──┬───┬───┬───┘  └──────┬──────┘ └────┬─────┘ │
+│       │             │           │   │   │             │             │       │
+│       │             │      ┌────┘   │   └────┐        │             │       │
+│       │             │      │        │        │        │             │       │
+│       ▼             ▼      ▼        ▼        ▼        │             │       │
+│  ┌─────────┐  ┌─────────┐ Clientes Produtos  │        │             │       │
+│  │icompras │  │icompras │ Service  Service    │        │             │       │
+│  │clientes │  │icompras │ (Feign)  (Feign)    │        │             │       │
+│  │  (DB)   │  │produtos │                     │        │             │       │
+│  └─────────┘  │  (DB)   │ ┌─────────┐  ┌──────────┐   │             │       │
+│               └─────────┘ │icompras │  │  Kafka   │   │             │       │
+│                           │pedidos  │─▶│  Broker  │──▶│             │       │
+│                           │  (DB)   │  │  :29092  │──────────────▶│       │
+│                           └─────────┘  └──────────┘   │             │       │
+│                                              │        ▼             │       │
+│                                         Kafka UI  ┌─────────┐      │       │
+│                                          :8090    │  MinIO  │      │       │
+│        PostgreSQL 17.4 — Port 5555                │  :9000  │      │       │
+│                                                   └─────────┘      │       │
+│                                                                     │       │
+│  Kafka Event Flow:                                                  │       │
+│  Pedidos ──▶ [pedidos-pagos] ──▶ Faturamento ──▶ [pedidos-faturados]│       │
+│  ──▶ Logistica ──▶ [pedidos-enviados] ──▶ Pedidos                   │       │
+└──────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ### 🔧 Microservices
@@ -122,7 +126,7 @@ Manages orders, line items, and payment processing. Communicates with the Client
 
 #### 🧾 Faturamento (Invoicing) — Port 8083
 
-Consumes Kafka events from the Pedidos service and generates PDF invoices using JasperReports. Stores invoices in MinIO object storage (S3-compatible). Also exposes a REST API for file upload and download.
+Consumes Kafka events from the Pedidos service and generates PDF invoices using JasperReports. Stores invoices in MinIO object storage (S3-compatible). After generating an invoice, publishes a `FATURADO` event to Kafka so the Logistica service can proceed with shipment. Also exposes a REST API for file upload and download.
 
 | Method | Endpoint | Description |
 |---|---|---|
@@ -133,13 +137,40 @@ Consumes Kafka events from the Pedidos service and generates PDF invoices using 
 - Topic: `icompras.pedidos-pagos`
 - Consumer group: `icompras-faturamento`
 
+**Kafka producer:**
+- Topic: `icompras.pedidos-faturados`
+- Publishes order ID, status `FATURADO`, and invoice URL after PDF generation
+
 **Invoice generation flow:**
 1. 👂 Listens for payment confirmation events on Kafka
 2. 📥 Deserializes order data (customer info, items, totals)
 3. 📄 Generates a PDF invoice using a JasperReports template
 4. ☁️ Uploads the PDF to MinIO bucket `icompras.faturas`
+5. 📣 Publishes `FATURADO` event with the invoice URL to Kafka
 
 **Dependencies:** Spring Kafka, JasperReports 7.0.6, JasperReports PDF 7.0.0, OpenPDF 2.0.3, MinIO Client 8.5.17, Jackson Datatype JSR-310/JDK8, Lombok
+
+#### 🚚 Logistica (Logistics) — Port 8084
+
+Handles shipment processing. This service is entirely event-driven with no REST endpoints — it consumes Kafka events from the Faturamento service, generates a tracking code, and publishes a shipment event back to Kafka so the Pedidos service can update the order status.
+
+**Kafka consumer:**
+- Topic: `icompras.pedidos-faturados`
+- Consumer group: `icompras-logistica`
+
+**Kafka producer:**
+- Topic: `icompras.pedidos-enviados`
+- Publishes order ID, status `ENVIADO`, and tracking code
+
+**Shipment flow:**
+1. 👂 Listens for invoicing events on `icompras.pedidos-faturados`
+2. 📥 Receives order ID and invoice URL
+3. 📦 Generates a tracking code (format: `XX00000000BR`)
+4. 📣 Publishes `ENVIADO` event with tracking code to `icompras.pedidos-enviados`
+
+**Dependencies:** Spring Kafka, Jackson Datatype JSR-310/JDK8, Lombok
+
+---
 
 ##### 🔔 Payment Webhook
 
@@ -176,11 +207,32 @@ The endpoint `POST /pedidos/pagamentos` allows adding a new payment attempt for 
 
 The Pedidos service publishes events to Apache Kafka for asynchronous processing.
 
-| Topic | Description |
-|---|---|
-| `icompras.pedidos-pagos` | Published when an order payment is confirmed |
-| `icompras.pedidos-faturados` | Reserved for invoice notifications |
-| `icompras.pedidos-enviados` | Reserved for shipment notifications |
+| Topic | Producer | Consumer | Description |
+|---|---|---|---|
+| `icompras.pedidos-pagos` | Pedidos | Faturamento | Published when an order payment is confirmed |
+| `icompras.pedidos-faturados` | Faturamento | Logistica, Pedidos | Published when an invoice PDF is generated |
+| `icompras.pedidos-enviados` | Logistica | Pedidos | Published when a shipment is prepared with a tracking code |
+
+**Event flow:**
+```
+Pedidos ──▶ [icompras.pedidos-pagos] ──▶ Faturamento
+                                              │
+                                              ▼
+                                   Generate PDF Invoice
+                                   Upload to MinIO
+                                              │
+                                              ▼
+Pedidos ◀── [icompras.pedidos-faturados] ◀── Faturamento
+   │
+   ▼
+Logistica ◀── [icompras.pedidos-faturados]
+      │
+      ▼
+   Generate Tracking Code
+      │
+      ▼
+Pedidos ◀── [icompras.pedidos-enviados] ◀── Logistica
+```
 
 Kafka UI is available at `http://localhost:8090` for monitoring topics and messages.
 
@@ -249,6 +301,10 @@ cd pedidos
 # Faturamento (port 8083)
 cd faturamento
 ./mvnw spring-boot:run
+
+# Logistica (port 8084)
+cd logistica
+./mvnw spring-boot:run
 ```
 
 **3️⃣ Test the APIs**
@@ -281,6 +337,7 @@ icompras/
 ├── 📦 produtos/           # Product microservice (Spring Boot 3.4.4)
 ├── 🛍️ pedidos/            # Order microservice (Spring Boot 3.3.4)
 ├── 🧾 faturamento/        # Invoicing microservice (Spring Boot 4.0.5)
+├── 🚚 logistica/          # Logistics microservice (Spring Boot 4.0.5)
 └── ⚙️ icompras-servicos/  # Infrastructure
     ├── database/
     │   ├── docker-compose.yml
@@ -299,7 +356,7 @@ icompras/
 
 ### 📋 Sobre
 
-**iCompras** é uma plataforma de e-commerce baseada em microsserviços, construída com **Java 21** e **Spring Boot**. O sistema gerencia clientes, produtos, pedidos e faturamento por meio de serviços independentes que se comunicam via APIs REST utilizando Spring Cloud OpenFeign e publicam eventos através do Apache Kafka. Notas fiscais em PDF são geradas com JasperReports e armazenadas no MinIO.
+**iCompras** é uma plataforma de e-commerce baseada em microsserviços, construída com **Java 21** e **Spring Boot**. O sistema gerencia clientes, produtos, pedidos, faturamento e logística por meio de serviços independentes que se comunicam via APIs REST utilizando Spring Cloud OpenFeign e publicam eventos através do Apache Kafka. Notas fiscais em PDF são geradas com JasperReports e armazenadas no MinIO. O processamento de envios é realizado através de um pipeline orientado a eventos com geração automática de código de rastreio.
 
 ### 🛠️ Stack Tecnológica
 
@@ -323,32 +380,36 @@ icompras/
 ### 🏗️ Arquitetura
 
 ```
-┌───────────────────────────────────────────────────────────────────────┐
-│                       Plataforma iCompras                            │
-│                                                                       │
-│  ┌──────────┐   ┌──────────┐   ┌──────────────┐   ┌──────────────┐   │
-│  │ Clientes │   │ Produtos │   │   Pedidos    │   │ Faturamento  │   │
-│  │  :8082   │   │  :8081   │   │    :8080     │   │    :8083     │   │
-│  └────┬─────┘   └────┬─────┘   └──┬───┬───┬───┘   └──────┬───────┘   │
-│       │              │             │   │   │              │           │
-│       │              │        ┌────┘   │   └────┐         │           │
-│       │              │        │        │        │         │           │
-│       ▼              ▼        ▼        ▼        ▼         │           │
-│  ┌─────────┐   ┌─────────┐  Clientes Produtos  │         │           │
-│  │icompras │   │icompras │  Service  Service    │         │           │
-│  │clientes │   │icompras │  (Feign)  (Feign)    │         │           │
-│  │  (BD)   │   │produtos │                      │         │           │
-│  └─────────┘   │  (BD)   │  ┌─────────┐   ┌──────────┐   │           │
-│                └─────────┘  │icompras │   │  Kafka   │   │           │
-│                             │pedidos  │──▶│  Broker  │──▶│           │
-│                             │  (BD)   │   │  :29092  │   │           │
-│                             └─────────┘   └──────────┘   │           │
-│                                                 │        ▼           │
-│                                            Kafka UI  ┌─────────┐    │
-│                                             :8090    │  MinIO  │    │
-│          PostgreSQL 17.4 — Porta 5555                │  :9000  │    │
-│                                                      └─────────┘    │
-└───────────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                           Plataforma iCompras                            │
+│                                                                              │
+│  ┌──────────┐  ┌──────────┐  ┌──────────────┐  ┌─────────────┐ ┌──────────┐ │
+│  │ Clientes │  │ Produtos │  │   Pedidos    │  │ Faturamento │ │Logistica │ │
+│  │  :8082   │  │  :8081   │  │    :8080     │  │    :8083    │ │  :8084   │ │
+│  └────┬─────┘  └────┬─────┘  └──┬───┬───┬───┘  └──────┬──────┘ └────┬─────┘ │
+│       │             │           │   │   │             │             │       │
+│       │             │      ┌────┘   │   └────┐        │             │       │
+│       │             │      │        │        │        │             │       │
+│       ▼             ▼      ▼        ▼        ▼        │             │       │
+│  ┌─────────┐  ┌─────────┐ Clientes Produtos  │        │             │       │
+│  │icompras │  │icompras │ Service  Service    │        │             │       │
+│  │clientes │  │icompras │ (Feign)  (Feign)    │        │             │       │
+│  │  (BD)   │  │produtos │                     │        │             │       │
+│  └─────────┘  │  (BD)   │ ┌─────────┐  ┌──────────┐   │             │       │
+│               └─────────┘ │icompras │  │  Kafka   │   │             │       │
+│                           │pedidos  │─▶│  Broker  │──▶│             │       │
+│                           │  (BD)   │  │  :29092  │──────────────▶│       │
+│                           └─────────┘  └──────────┘   │             │       │
+│                                              │        ▼             │       │
+│                                         Kafka UI  ┌─────────┐      │       │
+│                                          :8090    │  MinIO  │      │       │
+│        PostgreSQL 17.4 — Porta 5555                │  :9000  │      │       │
+│                                                   └─────────┘      │       │
+│                                                                     │       │
+│  Fluxo de Eventos Kafka:                                            │       │
+│  Pedidos ──▶ [pedidos-pagos] ──▶ Faturamento ──▶ [pedidos-faturados]│       │
+│  ──▶ Logistica ──▶ [pedidos-enviados] ──▶ Pedidos                   │       │
+└──────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ### 🔧 Microsserviços
@@ -398,7 +459,7 @@ Gerencia pedidos, itens e processamento de pagamento. Comunica-se com os serviç
 
 #### 🧾 Faturamento — Porta 8083
 
-Consome eventos Kafka do serviço de Pedidos e gera notas fiscais em PDF utilizando JasperReports. Armazena as notas no MinIO (armazenamento de objetos compatível com S3). Também expõe uma API REST para upload e download de arquivos.
+Consome eventos Kafka do serviço de Pedidos e gera notas fiscais em PDF utilizando JasperReports. Armazena as notas no MinIO (armazenamento de objetos compatível com S3). Após gerar a nota fiscal, publica um evento `FATURADO` no Kafka para que o serviço de Logística prossiga com o envio. Também expõe uma API REST para upload e download de arquivos.
 
 | Método | Endpoint | Descrição |
 |---|---|---|
@@ -409,13 +470,40 @@ Consome eventos Kafka do serviço de Pedidos e gera notas fiscais em PDF utiliza
 - Tópico: `icompras.pedidos-pagos`
 - Grupo de consumo: `icompras-faturamento`
 
+**Produtor Kafka:**
+- Tópico: `icompras.pedidos-faturados`
+- Publica ID do pedido, status `FATURADO` e URL da nota fiscal após geração do PDF
+
 **Fluxo de geração de nota fiscal:**
 1. 👂 Escuta eventos de confirmação de pagamento no Kafka
 2. 📥 Deserializa os dados do pedido (info do cliente, itens, totais)
 3. 📄 Gera um PDF de nota fiscal usando template JasperReports
 4. ☁️ Faz upload do PDF no bucket MinIO `icompras.faturas`
+5. 📣 Publica evento `FATURADO` com a URL da nota fiscal no Kafka
 
 **Dependências:** Spring Kafka, JasperReports 7.0.6, JasperReports PDF 7.0.0, OpenPDF 2.0.3, MinIO Client 8.5.17, Jackson Datatype JSR-310/JDK8, Lombok
+
+#### 🚚 Logística — Porta 8084
+
+Gerencia o processamento de envios. Este serviço é inteiramente orientado a eventos, sem endpoints REST — consome eventos Kafka do serviço de Faturamento, gera um código de rastreio e publica um evento de envio no Kafka para que o serviço de Pedidos atualize o status do pedido.
+
+**Consumidor Kafka:**
+- Tópico: `icompras.pedidos-faturados`
+- Grupo de consumo: `icompras-logistica`
+
+**Produtor Kafka:**
+- Tópico: `icompras.pedidos-enviados`
+- Publica ID do pedido, status `ENVIADO` e código de rastreio
+
+**Fluxo de envio:**
+1. 👂 Escuta eventos de faturamento em `icompras.pedidos-faturados`
+2. 📥 Recebe ID do pedido e URL da nota fiscal
+3. 📦 Gera um código de rastreio (formato: `XX00000000BR`)
+4. 📣 Publica evento `ENVIADO` com código de rastreio em `icompras.pedidos-enviados`
+
+**Dependências:** Spring Kafka, Jackson Datatype JSR-310/JDK8, Lombok
+
+---
 
 ##### 🔔 Webhook de Pagamento
 
@@ -452,11 +540,32 @@ O endpoint `POST /pedidos/pagamentos` permite adicionar uma nova tentativa de pa
 
 O serviço de Pedidos publica eventos no Apache Kafka para processamento assíncrono.
 
-| Tópico | Descrição |
-|---|---|
-| `icompras.pedidos-pagos` | Publicado quando o pagamento de um pedido é confirmado |
-| `icompras.pedidos-faturados` | Reservado para notificações de faturamento |
-| `icompras.pedidos-enviados` | Reservado para notificações de envio |
+| Tópico | Produtor | Consumidor | Descrição |
+|---|---|---|---|
+| `icompras.pedidos-pagos` | Pedidos | Faturamento | Publicado quando o pagamento de um pedido é confirmado |
+| `icompras.pedidos-faturados` | Faturamento | Logística, Pedidos | Publicado quando a nota fiscal em PDF é gerada |
+| `icompras.pedidos-enviados` | Logística | Pedidos | Publicado quando o envio é preparado com código de rastreio |
+
+**Fluxo de eventos:**
+```
+Pedidos ──▶ [icompras.pedidos-pagos] ──▶ Faturamento
+                                              │
+                                              ▼
+                                   Gerar Nota Fiscal PDF
+                                   Upload no MinIO
+                                              │
+                                              ▼
+Pedidos ◀── [icompras.pedidos-faturados] ◀── Faturamento
+   │
+   ▼
+Logística ◀── [icompras.pedidos-faturados]
+      │
+      ▼
+   Gerar Código de Rastreio
+      │
+      ▼
+Pedidos ◀── [icompras.pedidos-enviados] ◀── Logística
+```
 
 O Kafka UI está disponível em `http://localhost:8090` para monitoramento de tópicos e mensagens.
 
@@ -525,6 +634,10 @@ cd pedidos
 # Faturamento (porta 8083)
 cd faturamento
 ./mvnw spring-boot:run
+
+# Logistica (porta 8084)
+cd logistica
+./mvnw spring-boot:run
 ```
 
 **3️⃣ Testar as APIs**
@@ -557,6 +670,7 @@ icompras/
 ├── 📦 produtos/           # Microsserviço de produtos (Spring Boot 3.4.4)
 ├── 🛍️ pedidos/            # Microsserviço de pedidos (Spring Boot 3.3.4)
 ├── 🧾 faturamento/        # Microsserviço de faturamento (Spring Boot 4.0.5)
+├── 🚚 logistica/          # Microsserviço de logística (Spring Boot 4.0.5)
 └── ⚙️ icompras-servicos/  # Infraestrutura
     ├── database/
     │   ├── docker-compose.yml

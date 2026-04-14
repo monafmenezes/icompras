@@ -15,7 +15,7 @@ public record ProdutoDTO(
         @NotNull(message = "O valor não pode ser nulo.")
         @Positive(message = "O preço deve ser maior que zero.")
         BigDecimal valorUnitario,
-
+        Boolean ativo,
         String descricao
 ) {
 }

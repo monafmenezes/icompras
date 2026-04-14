@@ -23,6 +23,7 @@ public class PedidoValidator {
     public void validar(Pedido pedido) {
         Long codigoCliente = pedido.getCodigoCliente();
         validarCliente(codigoCliente);
+
         pedido.getItens().forEach(this::validarItem);
     }
 
@@ -30,7 +31,13 @@ public class PedidoValidator {
         try {
             ResponseEntity<ClienteRepresentation> response = clientesClient.findByCodigo(codigoCliente);
             ClienteRepresentation cliente = response.getBody();
+            assert cliente != null;
             log.info("Cliente de codigo {} encontrado: {}", cliente.codigo(), cliente.nome());
+
+            if(!cliente.ativo()) {
+                String message = String.format("Cliente de codigo %d não está ativo", codigoCliente);
+                throw new ValidationException("codigoCliente", message);
+            }
         } catch (FeignException.NotFound e) {
             String message = String.format("Cliente de codigo %d não encontrado", codigoCliente);
             throw new ValidationException("codigoCliente", message);
@@ -41,6 +48,11 @@ public class PedidoValidator {
         try {
             ResponseEntity<ProdutoRepresentation> response = produtosClient.obterDados(item.getCodigoProduto());
             ProdutoRepresentation produto = response.getBody();
+            assert produto != null;
+            if(!produto.ativo()) {
+                String message = String.format("Produto de codigo %d não está ativo", item.getCodigoProduto());
+                throw new ValidationException("codigoProduto", message);
+            }
             log.info("Produto de codigo {} encontrado: {}", produto.codigo(), produto.nome());
         } catch (FeignException.NotFound e) {
             String message = String.format("Produto de codigo %d não encontrado", item.getCodigoProduto());

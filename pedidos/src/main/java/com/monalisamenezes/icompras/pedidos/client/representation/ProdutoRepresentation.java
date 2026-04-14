@@ -2,5 +2,5 @@ package com.monalisamenezes.icompras.pedidos.client.representation;
 
 import java.math.BigDecimal;
 
-public record ProdutoRepresentation(Long codigo, String nome, BigDecimal valorUnitario) {
+public record ProdutoRepresentation(Long codigo, String nome, BigDecimal valorUnitario, boolean ativo) {
 }

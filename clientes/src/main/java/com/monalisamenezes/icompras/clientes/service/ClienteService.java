@@ -4,7 +4,9 @@ import com.monalisamenezes.icompras.clientes.dto.ClienteDTO;
 import com.monalisamenezes.icompras.clientes.repository.ClienteRepository;
 import com.monalisamenezes.icompras.clientes.model.Cliente;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 import java.util.Optional;
@@ -66,5 +68,17 @@ public class ClienteService {
                         c.getTelefone()
                 ))
                 .toList();
+    }
+
+    public void delete(Long codigo) {
+        Cliente cliente = repository.findById(codigo)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Cliente não encontrado com o código: " + codigo
+                ));
+
+        cliente.setAtivo(false);
+
+        repository.save(cliente);
     }
 }
