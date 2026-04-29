@@ -15,7 +15,8 @@
 <p align="center">
   <a href="#-english">🇺🇸 English</a> •
   <a href="#-português">🇧🇷 Português</a> •
-  <a href="docs/plano-acao.md">📌 Plano de ação</a>
+  <a href="docs/plano-acao.md">📌 Plano de ação</a> •
+  <a href="docs/fase1-fundacao.md">🧱 Fase 1</a>
 </p>
 
 ---

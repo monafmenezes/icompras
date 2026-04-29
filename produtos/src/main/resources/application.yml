@@ -1,19 +1,58 @@
 spring:
   application:
     name: produtos
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:local}
   datasource:
-    url: jdbc:postgresql://localhost:5555/icomprasprodutos
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5555}/${DB_NAME:icomprasprodutos}
     username: ${DB_USERNAME:postgres}
     password: ${DB_PASSWORD:postgres}
     driver-class-name: org.postgresql.Driver
   jpa:
     database-platform: org.hibernate.dialect.PostgreSQLDialect
     hibernate:
-      ddl-auto: update
-    show-sql: true
+      ddl-auto: ${JPA_DDL_AUTO:update}
+    show-sql: ${JPA_SHOW_SQL:false}
     properties:
       hibernate:
         format_sql: true
 
 server:
-  port: 8081
+  port: ${SERVER_PORT:8081}
+  error:
+    include-message: always
+    include-binding-errors: always
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always
+
+logging:
+  level:
+    root: ${LOG_LEVEL_ROOT:INFO}
+    com.monalisamenezes.icompras: ${LOG_LEVEL_APP:INFO}
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%X{traceId:-},%X{spanId:-}] [%thread] %logger{36} - %msg%n"
+
+---
+spring:
+  config:
+    activate:
+      on-profile: docker
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:postgres}:${DB_PORT:5432}/${DB_NAME:icomprasprodutos}
+
+---
+spring:
+  config:
+    activate:
+      on-profile: test
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false

@@ -1,0 +1,75 @@
+@baseUrl = http://localhost
+@apiKey = changeme
+
+### Health - pedidos
+GET {{baseUrl}}:8080/actuator/health
+
+### Health - produtos
+GET {{baseUrl}}:8081/actuator/health
+
+### Health - clientes
+GET {{baseUrl}}:8082/actuator/health
+
+### Health - faturamento
+GET {{baseUrl}}:8083/actuator/health
+
+### Health - logistica
+GET {{baseUrl}}:8084/actuator/health
+
+### Criar cliente
+POST {{baseUrl}}:8082/clientes
+Content-Type: application/json
+
+{
+  "nome": "Maria Souza",
+  "cpf": "12345678901",
+  "logradouro": "Rua A",
+  "numero": "10",
+  "bairro": "Centro",
+  "email": "maria@example.com",
+  "telefone": "85999999999"
+}
+
+### Criar produto
+POST {{baseUrl}}:8081/produtos
+Content-Type: application/json
+
+{
+  "nome": "Teclado Mecanico",
+  "valorUnitario": 350.00,
+  "descricao": "Switch blue"
+}
+
+### Criar pedido
+POST {{baseUrl}}:8080/pedidos
+Content-Type: application/json
+
+{
+  "codigoCliente": 1,
+  "dadosPagamento": {
+    "tipoPagamento": "PIX",
+    "dadosCartao": "NA"
+  },
+  "itens": [
+    {
+      "codigoProduto": 1,
+      "quantidade": 1
+    }
+  ]
+}
+
+### Callback pagamento
+POST {{baseUrl}}:8080/pedidos/callback-pagamentos
+Content-Type: application/json
+apiKey: {{apiKey}}
+
+{
+  "codigo": 1,
+  "chavePagamento": "abc-123",
+  "status": true,
+  "observacoes": "Pagamento aprovado"
+}
+
+### Consultar pedido
+GET {{baseUrl}}:8080/pedidos/1
+

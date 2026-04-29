@@ -1,19 +1,47 @@
 spring:
   application:
     name: logistica
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:local}
   kafka:
-    bootstrap-servers: 'http://localhost:29092'
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:29092}
     consumer:
-      group-id: icompras-logistica
+      group-id: ${KAFKA_GROUP_LOGISTICA:icompras-logistica}
       auto-offset-reset: earliest
 
 icompras:
   config:
     kafka:
       topic:
-        pedidos-enviados: 'icompras.pedidos-enviados'
-        pedidos-faturados: 'icompras.pedidos-faturados'
+        pedidos-enviados: ${TOPIC_PEDIDOS_ENVIADOS:icompras.pedidos-enviados}
+        pedidos-faturados: ${TOPIC_PEDIDOS_FATURADOS:icompras.pedidos-faturados}
 
 server:
-  port: 8084
+  port: ${SERVER_PORT:8084}
+  error:
+    include-message: always
+    include-binding-errors: always
 
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always
+
+logging:
+  level:
+    root: ${LOG_LEVEL_ROOT:INFO}
+    com.monalisamenezes.icompras: ${LOG_LEVEL_APP:INFO}
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%X{traceId:-},%X{spanId:-}] [%thread] %logger{36} - %msg%n"
+
+---
+spring:
+  config:
+    activate:
+      on-profile: docker
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:kafka:9092}
