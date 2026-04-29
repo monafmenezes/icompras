@@ -14,7 +14,8 @@
 
 <p align="center">
   <a href="#-english">🇺🇸 English</a> •
-  <a href="#-português">🇧🇷 Português</a>
+  <a href="#-português">🇧🇷 Português</a> •
+  <a href="docs/plano-acao.md">📌 Plano de ação</a>
 </p>
 
 ---

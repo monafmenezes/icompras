@@ -12,3 +12,5 @@ icompras-servicos/database/data/
 **/mvnw
 **/mvnw.cmd
 .mvn/
+
+.codex
