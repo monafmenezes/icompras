@@ -1,13 +1,14 @@
 package com.monalisamenezes.icompras.produtos.controller;
 
 import com.monalisamenezes.icompras.produtos.dto.ProdutoDTO;
+import com.monalisamenezes.icompras.produtos.model.Produto;
 import com.monalisamenezes.icompras.produtos.service.ProdutoService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.math.BigDecimal;
@@ -26,7 +27,7 @@ public class ProdutoControllerTest {
     @Autowired
     private MockMvc mockMvc;
 
-    @MockitoBean
+    @MockBean
     private ProdutoService produtoService;
 
 
@@ -99,7 +100,7 @@ public class ProdutoControllerTest {
     @Test
     @DisplayName("Deve retornar status 200 ao buscar uma listagem de produtos")
     void shouldReturnStatusOk() throws Exception {
-        ProdutoDTO p1 = new ProdutoDTO(1L, "Teclado", new BigDecimal("180.00"), null);
+        ProdutoDTO p1 = new ProdutoDTO(1L, "Teclado", new BigDecimal("180.00"), true, null);
         when(produtoService.findAll()).thenReturn(List.of(p1));
 
         mockMvc.perform(get("/produtos")
@@ -111,7 +112,7 @@ public class ProdutoControllerTest {
     @Test
     @DisplayName("Deve retornar 201 ao criar um novo produto")
     void shouldReturnStatusCreated() throws Exception {
-        ProdutoDTO retorno = new ProdutoDTO(1L, "Teclado", new BigDecimal("180.00"), null);
+        ProdutoDTO retorno = new ProdutoDTO(1L, "Teclado", new BigDecimal("180.00"), true, null);
         when(produtoService.salvar(any())).thenReturn(retorno);
 
         String body = """
@@ -132,7 +133,12 @@ public class ProdutoControllerTest {
     @DisplayName("Deve retornar status 200 ao buscar um produto por código existente")
     void shouldReturnProductWhenIdExists() throws Exception {
         Long codigo = 1L;
-        ProdutoDTO p1 = new ProdutoDTO(codigo, "Teclado", new BigDecimal("180.00"), "Sem fio");
+        Produto p1 = new Produto();
+        p1.setCodigo(codigo);
+        p1.setNome("Teclado");
+        p1.setValorUnitario(new BigDecimal("180.00"));
+        p1.setAtivo(true);
+        p1.setDescricao("Sem fio");
 
         when(produtoService.obterPorCodigo(codigo)).thenReturn(java.util.Optional.of(p1));
 

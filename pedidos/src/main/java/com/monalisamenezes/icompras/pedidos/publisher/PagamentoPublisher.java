@@ -23,8 +23,6 @@ public class PagamentoPublisher {
     private String topico;
 
     public void publicar(Pedido pedido) {
-        DetalhePedidoRepresentation detalhePedido = detalhePedidoMapper.map(pedido);
-
         log.info("Publicando pedido pago {}", pedido.getCodigo());
 
         try {

@@ -1,5 +1,6 @@
 # Ignorar pastas de dados do banco
 icompras-servicos/database/data/
+icompras-servicos/bucket/data/
 
 # Ignorar pastas de compilação do Maven
 **/target/

@@ -3,7 +3,6 @@ package com.monalisamenezes.icompras.faturamento.service;
 import com.monalisamenezes.icompras.faturamento.config.model.Pedido;
 import net.sf.jasperreports.engine.*;
 import net.sf.jasperreports.engine.data.JRBeanCollectionDataSource;
-import org.jspecify.annotations.NonNull;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
@@ -46,7 +45,7 @@ public class NotaFiscalService {
         }
     }
 
-    private @NonNull Map<String, Object> getStringObjectMap(Pedido pedido) throws IOException {
+    private Map<String, Object> getStringObjectMap(Pedido pedido) throws IOException {
         Map<String, Object> params = new HashMap<>();
         params.put("NOME", pedido.cliente().nome());
         params.put("CPF", pedido.cliente().cpf());
