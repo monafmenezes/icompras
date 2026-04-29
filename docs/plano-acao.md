@@ -36,31 +36,42 @@ Infraestrutura atual:
 
 ## Roadmap Geral
 
-### Fase 1: Fundacao e Padronizacao
+### Fase 1: Fundacao e Padronizacao - Concluida
 
-- [ ] Padronizar versoes do Spring Boot entre todos os microservicos.
-- [ ] Criar um `docker-compose.yml` raiz para subir toda a stack local.
-- [ ] Criar profiles `local`, `docker` e `test`.
-- [ ] Padronizar variaveis de ambiente.
-- [ ] Adicionar Spring Boot Actuator em todos os servicos.
-- [ ] Padronizar logs e mensagens de erro.
-- [ ] Revisar nomes de classes/configuracoes com typos ou inconsistencias.
-- [ ] Criar documentacao de portas e dependencias.
-- [ ] Criar colecao Postman, Insomnia ou arquivos `.http`.
+Status: concluida.
 
-### Fase 2: Microservico de Autenticacao
+Documento detalhado: [`docs/fase1-fundacao.md`](fase1-fundacao.md).
+
+- [x] Padronizar versoes do Spring Boot entre todos os microservicos.
+- [x] Criar um `docker-compose.yml` raiz para subir toda a stack local.
+- [x] Criar profiles `local`, `docker` e `test`.
+- [x] Padronizar variaveis de ambiente.
+- [x] Adicionar Spring Boot Actuator em todos os servicos.
+- [x] Padronizar logs e mensagens de erro.
+- [x] Revisar nomes de classes/configuracoes com typos ou inconsistencias.
+- [x] Criar documentacao de portas e dependencias.
+- [x] Criar colecao Postman, Insomnia ou arquivos `.http`.
+
+### Fase 2: Microservico de Autenticacao - Em planejamento
+
+Status: proxima fase.
+
+Documento detalhado: [`docs/fase2-autenticacao.md`](fase2-autenticacao.md).
 
 - [ ] Criar modulo/servico `auth`.
 - [ ] Criar banco `icomprasauth`.
+- [ ] Configurar profiles `local`, `docker` e `test`.
 - [ ] Implementar entidade `User`.
 - [ ] Implementar cadastro de usuario.
 - [ ] Implementar login com email e senha.
 - [ ] Gerar token JWT.
 - [ ] Validar token JWT.
-- [ ] Implementar roles `ADMIN`, `CUSTOMER` e, se necessario, `SERVICE`.
+- [ ] Implementar roles `ADMIN`, `CUSTOMER` e `SERVICE`.
 - [ ] Criar endpoint para usuario autenticado.
-- [ ] Adicionar testes unitarios e de integracao.
+- [ ] Adicionar refresh token ou definir explicitamente que o MVP usara somente access token.
+- [ ] Adicionar testes unitarios, de controller e de integracao.
 - [ ] Documentar endpoints no Swagger.
+- [ ] Incluir o servico no Docker Compose raiz.
 
 Endpoints sugeridos:
 
@@ -495,4 +506,3 @@ Para uma primeira versao completa de portfolio:
 - [ ] Testes unitarios dos services principais.
 - [ ] Teste de integracao do fluxo de pedido.
 - [ ] README atualizado com passo a passo.
-
